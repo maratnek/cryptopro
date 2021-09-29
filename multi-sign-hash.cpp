@@ -20,7 +20,9 @@
 using namespace std::chrono;
 
 using T_UNIQP_BYTE = std::unique_ptr<BYTE[]>;
+using T_SHARP_BYTE = std::shared_ptr<BYTE[]>;
 using T_PAIR_BYTE = std::pair< T_UNIQP_BYTE, DWORD >;
+using T_PUBLIC_KEY = std::pair< T_SHARP_BYTE, DWORD >;
 
 #include "threads-utils.h"
 auto lamda_multi_thread = l_thread_data<std::function<void(size_t, size_t)>>;
@@ -35,19 +37,24 @@ private:
     HCRYPTKEY _hPubKey = 0;
     BYTE *_pbHash = NULL;
     BYTE *_pbSignature = NULL;
-    BYTE *_pbKeyBlob = NULL;
+    // BYTE *_pbKeyBlob = NULL;
+
+    T_PUBLIC_KEY _pub_key;
 
     const char *CONTAINER = "\\\\.\\HDIMAGE\\cbr2";
+
+    void InitPubKey();
 
 public:
     Crypto(/* args */);
     ~Crypto();
     void CleanUp(void);
 
+    T_PUBLIC_KEY getPublicKey();
     void HandleError(const char *s);
     HCRYPTHASH hash(const char *data);
     T_PAIR_BYTE hash_byte(const char *data);
-    bool Verify(const char* data, DWORD dwSigLen);
+    bool Verify(const char* data, DWORD dwSigLen, T_PUBLIC_KEY pub_key);
     DWORD Sign(const char* data);
     void showHash() const;
 };
@@ -81,7 +88,6 @@ void Crypto::showHash() const
 T_PAIR_BYTE Crypto::hash_byte(const char *data)
 {
     this->hash(data);
-    // BYTE rgbHash[GR3411LEN] = {0};
     T_UNIQP_BYTE rgbHash = std::make_unique<BYTE[]>(GR3411LEN);
     DWORD cbHash = GR3411LEN;
     if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash.get(), &cbHash, 0))
@@ -171,6 +177,8 @@ Crypto::Crypto(/* args */)
     {
         HandleError("Error during CryptGetHashParam.");
     }
+
+    this->InitPubKey();
 
 }
 
@@ -269,9 +277,8 @@ DWORD Crypto::Sign(const char* data)
     return dwSigLen;
 }
 
-bool Crypto::Verify(const char* data, DWORD dwSigLen)
+void Crypto::InitPubKey()
 {
-
     DWORD dwBlobLen = 0;
 
     //--------------------------------------------------------------------
@@ -285,7 +292,7 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
             AT_SIGNATURE,
             &_hKey))
     {
-        // printf("The signature key has been acquired. \n");
+        printf("The signature key has been acquired. \n");
     }
     else
     {
@@ -313,11 +320,11 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
     }
     //--------------------------------------------------------------------
     // Распределение памяти под pbKeyBlob.
-
     // _pbKeyBlob = (BYTE *)malloc(dwBlobLen);
-    if (!_pbKeyBlob)
-        _pbKeyBlob = new BYTE[dwBlobLen];
-    if (!_pbKeyBlob)
+    // T_SHARP_BYTE p_pub_key = std::make_shared<BYTE[]>(dwBlobLen, 0);
+    T_SHARP_BYTE p_pub_key = T_SHARP_BYTE(new BYTE[dwBlobLen]);;
+
+    if (!p_pub_key)
         HandleError("Out of memory. \n");
 
     // Сам экспорт в ключевой BLOB.
@@ -326,7 +333,8 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
             0,
             PUBLICKEYBLOB,
             0,
-            _pbKeyBlob,
+            // _pbKeyBlob,
+            p_pub_key.get(),
             &dwBlobLen))
     {
         // printf("Contents have been written to the BLOB. \n");
@@ -335,35 +343,26 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
     {
         HandleError("Error during CryptExportKey.");
     }
+    _pub_key = {p_pub_key, dwBlobLen};
+}
 
-    //--------------------------------------------------------------------
-    // Во второй части программы проверяется подпись.
-    // Чаще всего проверка осуществляется в случае, когда различные
-    // пользователи используют одну и ту же программу. Хэш, подпись,
-    // а также PUBLICKEYBLOB могут быть прочитаны из файла, e-mail сообщения
-    // или из другого источника.
+T_PUBLIC_KEY Crypto::getPublicKey()
+{
+    return _pub_key;
+}
 
-    // Здесь используюся определенные ранее pbBuffer, pbSignature,
-    // szDescription, pbKeyBlob и их длины.
 
-    // Содержимое буфера pbBuffer представляет из себя некоторые
-    // подписанные ранее данные.
-
-    // Указатель szDescription на текст, описывающий данные, подписывается.
-    // Это тот же самый текст описания, который был ранее передан
-    // функции CryptSignHash.
-
-    //--------------------------------------------------------------------
-    // Получение откытого ключа пользователя, который создал цифровую подпись,
-    // и импортирование его в CSP с помощью функции CryptImportKey. Она
-    // возвращает дескриптор открытого ключа в hPubKey.
-
+bool Crypto::Verify(const char* data, DWORD dwSigLen, T_PUBLIC_KEY pub_key)
+{
     BYTE *pbBuffer = (BYTE *)data;
     DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
+
+    DWORD dwBlobLen = pub_key.second;
+    auto p_pub_key = pub_key.first;
     
     if (CryptImportKey(
             _hProv,
-            _pbKeyBlob,
+            p_pub_key.get(),
             dwBlobLen,
             0,
             0,
@@ -411,8 +410,8 @@ void Crypto::CleanUp(void)
         delete[] _pbSignature;
     if (_pbHash)
         delete[] _pbHash;
-    if (_pbKeyBlob)
-        delete[] _pbKeyBlob;
+    // if (_pbKeyBlob)
+        // delete[] _pbKeyBlob;
 
     // Уничтожение объекта функции хэширования.
     if (_hHash)
@@ -479,7 +478,8 @@ int main(void)
                            for (; i < max_count; i++)
                            {
                                dwSigLen = sign.Sign(some_data.c_str());
-                               if (!sign.Verify(some_data.c_str(), dwSigLen))
+                               auto pub_key = sign.getPublicKey();
+                               if (!sign.Verify(some_data.c_str(), dwSigLen, pub_key ))
                                    throw "Exception bad verify";
                            }
                        },

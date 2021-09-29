@@ -89,6 +89,23 @@ target_include_directories(multi-sign-hash PUBLIC
 )
 target_link_libraries(multi-sign-hash crypto ssp capi10 rdrsup pthread)
 
+add_executable(create-cont-if-not-exist create-cont-if-not-exist.cpp)
+
+target_compile_definitions(create-cont-if-not-exist PUBLIC 
+    SIZEOF_VOID_P=8 
+    UNIX
+    HAVE_LIMITS_H
+    HAVE_STD_INT_H
+    COMPACT
+)
+target_link_directories(create-cont-if-not-exist PUBLIC /opt/cprocsp/lib/amd64)
+target_include_directories(create-cont-if-not-exist PUBLIC 
+    /opt/cprocsp 
+    /opt/cprocsp/include/ 
+    /opt/cprocsp/include/cpcsp
+)
+target_link_libraries(create-cont-if-not-exist crypto ssp capi10 rdrsup pthread)
+
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
