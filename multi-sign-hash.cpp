@@ -1,24 +1,3 @@
-/*
-* Copyright(C) 2000-2010 Проект ИОК
-*
-* Этот файл содержит информацию, являющуюся
-* собственностью компании Крипто Про.
-*
-* Любая часть этого файла не может быть скопирована,
-* исправлена, переведена на другие языки,
-* локализована или модифицирована любым способом,
-* откомпилирована, передана по сети с или на
-* любую компьютерную систему без предварительного
-* заключения соглашения с компанией Крипто Про.
-*
-* Программный код, содержащийся в этом файле, предназначен
-* исключительно для целей обучения и не может быть использован
-* для защиты информации.
-*
-* Компания Крипто-Про не несет никакой
-* ответственности за функционирование этого кода.
-*/
-
 #include <stdio.h>
 #ifdef _WIN32
 #include <windows.h>
@@ -37,16 +16,15 @@
 #include <string>
 #include <chrono>
 #include <iostream>
+#include <memory>
 using namespace std::chrono;
 
-// Начало примера (не следует удалять данный комментарий, он используется
-// для автоматической сборки документации)
-//--------------------------------------------------------------------
-// В этом примере реализованы создание подписи объекта функции хэширования
-// и проверка этой электронно-цифровой подписи.
-// Замечание: под win32 рекомендуется использовать _s аналоги CRT функций.
-//--------------------------------------------------------------------
-#define GR3411LEN  64
+using T_UNIQP_BYTE = std::unique_ptr<BYTE[]>;
+using T_PAIR_BYTE = std::pair< T_UNIQP_BYTE, DWORD >;
+
+#include "threads-utils.h"
+auto lamda_multi_thread = l_thread_data<std::function<void(size_t, size_t)>>;
+
 class Crypto
 {
 private:
@@ -68,9 +46,55 @@ public:
 
     void HandleError(const char *s);
     HCRYPTHASH hash(const char *data);
+    T_PAIR_BYTE hash_byte(const char *data);
     bool Verify(const char* data, DWORD dwSigLen);
     DWORD Sign(const char* data);
+    void showHash() const;
 };
+
+constexpr size_t GR3411LEN = 64;
+void Crypto::showHash() const
+{
+    //--------------------------------------------------------------------
+    // Получение параметра объекта функции хэширования.
+    static CHAR rgbDigits[] = "0123456789abcdef";
+    BYTE rgbHash[GR3411LEN] = {0};
+    DWORD cbHash = GR3411LEN;
+    if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
+    {
+        // CryptDestroyHash(_hHash);
+        // CryptReleaseContext(_hProv, 0);
+        // HandleError("CryptGetHashParam failed");
+        // TODO Error
+        return;
+    }
+
+    printf("GR3411 hash of file is: ");
+    for(DWORD i = 0; i < cbHash; i++)
+    {
+	printf("%c%c", rgbDigits[rgbHash[i] >> 4],
+	    rgbDigits[rgbHash[i] & 0xf]);
+    }
+    printf("\n");
+}
+
+T_PAIR_BYTE Crypto::hash_byte(const char *data)
+{
+    this->hash(data);
+    // BYTE rgbHash[GR3411LEN] = {0};
+    T_UNIQP_BYTE rgbHash = std::make_unique<BYTE[]>(GR3411LEN);
+    DWORD cbHash = GR3411LEN;
+    if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash.get(), &cbHash, 0))
+    {
+        // CryptDestroyHash(_hHash);
+        // CryptReleaseContext(_hProv, 0);
+        // HandleError("CryptGetHashParam failed");
+        // TODO Error
+        return {std::move(rgbHash), cbHash};
+    }
+
+    return {std::move(rgbHash), cbHash};
+}
 
 Crypto::Crypto(/* args */)
 {
@@ -92,16 +116,6 @@ Crypto::Crypto(/* args */)
         HandleError("Error during CryptAcquireContext.");
     }
 
-
-
-}
-
-HCRYPTHASH Crypto::hash(const char *data)
-{
-
-    BYTE *pbBuffer = (BYTE*)data; 
-    DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
-    DWORD dwBlobLen;
     DWORD cbHash;
     //--------------------------------------------------------------------
     // Создание объекта функции хэширования.
@@ -119,8 +133,7 @@ HCRYPTHASH Crypto::hash(const char *data)
     {
         HandleError("Error during CryptCreateHash.");
     }
-
-    //--------------------------------------------------------------------
+  //--------------------------------------------------------------------
     // Передача параметра HP_OID объекта функции хэширования.
     //--------------------------------------------------------------------
 
@@ -159,6 +172,32 @@ HCRYPTHASH Crypto::hash(const char *data)
         HandleError("Error during CryptGetHashParam.");
     }
 
+}
+
+HCRYPTHASH Crypto::hash(const char *data)
+{
+
+    BYTE *pbBuffer = (BYTE*)data; 
+    DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
+  //--------------------------------------------------------------------
+    // Создание объекта функции хэширования.
+
+    if (CryptCreateHash(
+            _hProv,
+            CALG_GR3411_2012_256,
+            0,
+            0,
+            &_hHash))
+    {
+        // printf("Hash object created. \n");
+    }
+    else
+    {
+        HandleError("Error during CryptCreateHash.");
+    }
+  
+    if (!_pbHash)
+        HandleError("Out of memory. \n");
     //--------------------------------------------------------------------
     // Вычисление криптографического хэша буфера.
 
@@ -174,26 +213,6 @@ HCRYPTHASH Crypto::hash(const char *data)
     {
         HandleError("Error during CryptHashData.");
     }
-
-    //--------------------------------------------------------------------
-    // Получение параметра объекта функции хэширования.
-    // CHAR rgbDigits[] = "0123456789abcdef";
-    // BYTE rgbHash[GR3411LEN];
-    // cbHash = GR3411LEN;
-    // if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
-    // {
-    //     CryptDestroyHash(_hHash);
-    //     CryptReleaseContext(_hProv, 0);
-    //     HandleError("CryptGetHashParam failed");
-    // }
-
-    // printf("GR3411 hash of file is: ");
-    // for(DWORD i = 0; i < cbHash; i++)
-    // {
-	// printf("%c%c", rgbDigits[rgbHash[i] >> 4],
-	//     rgbDigits[rgbHash[i] & 0xf]);
-    // }
-    // printf("\n");
     return _hHash;
 
 }
@@ -342,10 +361,6 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
     BYTE *pbBuffer = (BYTE *)data;
     DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
     
-    // DWORD dwBlobLen;
-    // DWORD cbHash;
-    // FILE *signature;
-
     if (CryptImportKey(
             _hProv,
             _pbKeyBlob,
@@ -393,13 +408,10 @@ Crypto::~Crypto()
 void Crypto::CleanUp(void)
 {
     if (_pbSignature)
-        // free(_pbSignature);
         delete[] _pbSignature;
     if (_pbHash)
-        // free(_pbHash);
         delete[] _pbHash;
     if (_pbKeyBlob)
-        // free(_pbKeyBlob);
         delete[] _pbKeyBlob;
 
     // Уничтожение объекта функции хэширования.
@@ -417,16 +429,6 @@ void Crypto::CleanUp(void)
         CryptReleaseContext(_hProv, 0);
 }
 
-// Конец примера
-// (не следует удалять данный комментарий, он используется
-//  для автоматической сборки документации)
-
-//--------------------------------------------------------------------
-//  В этом примере используется функция HandleError, функция обработки
-//  простых ошибок, для печати сообщения и выхода из программы.
-//  В большинстве приложений эта функция заменяется другой функцией,
-//  которая выводит более полное сообщение об ошибке.
-
 void Crypto::HandleError(const char *s)
 {
     DWORD err = GetLastError();
@@ -440,18 +442,48 @@ void Crypto::HandleError(const char *s)
 
 int main(void)
 {
-    Crypto sign;
-    auto dwSigLen = 0;
-    std::string my_new_data_for_sign = "My some data for signing";
-    auto count = 100000;
+    auto count = 100'000;
+
+// only hash
+
+    // CHAR rgbDigits[] = "0123456789abcdef";
+    // auto start = system_clock::now();
+    // lamda_multi_thread([&rgbDigits](size_t i, size_t max_count)
+    //                    {
+    //                        Crypto sign;
+    //                        std::string some_data = "My some data for signing";
+    //                        auto dwSigLen = 0;
+    //                        for (; i < max_count; i++)
+    //                        {
+    //                            auto hash_pair = sign.hash_byte(some_data.c_str());
+    //                            auto rgbHash = std::move(hash_pair.first);
+    //                         //    printf("GR3411 hash of file is: ");
+    //                         //    for (DWORD i = 0; i < hash_pair.second; i++)
+    //                         //    {
+    //                         //        printf("%c%c", rgbDigits[rgbHash[i] >> 4],
+    //                         //               rgbDigits[rgbHash[i] & 0xf]);
+    //                         //    }
+    //                         //    printf("\n");
+    //                        }
+    //                    },
+    //                    count);
+    // auto end = system_clock::now();
+    // std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count()/1000.0 << std::endl;
+
     auto start = system_clock::now();
-    for (size_t i = 0; i < count; i++)
-    {
-        // my_new_data_for_sign += std::to_string(i);
-        dwSigLen = sign.Sign(my_new_data_for_sign.c_str());
-        if( !sign.Verify(my_new_data_for_sign.c_str(), dwSigLen) )
-            throw "Exception bad verify";
-    }
+    lamda_multi_thread([](size_t i, size_t max_count)
+                       {
+                           Crypto sign;
+                           std::string some_data = "My some data for signing";
+                           auto dwSigLen = 0;
+                           for (; i < max_count; i++)
+                           {
+                               dwSigLen = sign.Sign(some_data.c_str());
+                               if (!sign.Verify(some_data.c_str(), dwSigLen))
+                                   throw "Exception bad verify";
+                           }
+                       },
+                       count);
     auto end = system_clock::now();
     std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count()/1000.0 << std::endl;
 

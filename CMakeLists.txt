@@ -72,6 +72,23 @@ target_include_directories(signing-hash-etalon PUBLIC
 )
 target_link_libraries(signing-hash-etalon crypto ssp capi10 rdrsup pthread)
 
+add_executable(multi-sign-hash multi-sign-hash.cpp)
+
+target_compile_definitions(multi-sign-hash PUBLIC 
+    SIZEOF_VOID_P=8 
+    UNIX
+    HAVE_LIMITS_H
+    HAVE_STD_INT_H
+    COMPACT
+)
+target_link_directories(multi-sign-hash PUBLIC /opt/cprocsp/lib/amd64)
+target_include_directories(multi-sign-hash PUBLIC 
+    /opt/cprocsp 
+    /opt/cprocsp/include/ 
+    /opt/cprocsp/include/cpcsp
+)
+target_link_libraries(multi-sign-hash crypto ssp capi10 rdrsup pthread)
+
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
