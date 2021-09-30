@@ -72,7 +72,7 @@ target_include_directories(signing-hash-etalon PUBLIC
 )
 target_link_libraries(signing-hash-etalon crypto ssp capi10 rdrsup pthread)
 
-add_executable(multi-sign-hash multi-sign-hash.cpp)
+add_executable(multi-sign-hash multi-sign-hash.cpp crypto.cpp)
 
 target_compile_definitions(multi-sign-hash PUBLIC 
     SIZEOF_VOID_P=8 
