@@ -1,23 +1,23 @@
 /*
-* Copyright(C) 2000-2010 Проект ИОК
-*
-* Этот файл содержит информацию, являющуюся
-* собственностью компании Крипто Про.
-*
-* Любая часть этого файла не может быть скопирована,
-* исправлена, переведена на другие языки,
-* локализована или модифицирована любым способом,
-* откомпилирована, передана по сети с или на
-* любую компьютерную систему без предварительного
-* заключения соглашения с компанией Крипто Про.
-*
-* Программный код, содержащийся в этом файле, предназначен
-* исключительно для целей обучения и не может быть использован
-* для защиты информации.
-*
-* Компания Крипто-Про не несет никакой
-* ответственности за функционирование этого кода.
-*/
+ * Copyright(C) 2000-2010 РџСЂРѕРµРєС‚ РРћРљ
+ *
+ * Р­С‚РѕС‚ С„Р°Р№Р» СЃРѕРґРµСЂР¶РёС‚ РёРЅС„РѕСЂРјР°С†РёСЋ, СЏРІР»СЏСЋС‰СѓСЋСЃСЏ
+ * СЃРѕР±СЃС‚РІРµРЅРЅРѕСЃС‚СЊСЋ РєРѕРјРїР°РЅРёРё РљСЂРёРїС‚Рѕ РџСЂРѕ.
+ *
+ * Р›СЋР±Р°СЏ С‡Р°СЃС‚СЊ СЌС‚РѕРіРѕ С„Р°Р№Р»Р° РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃРєРѕРїРёСЂРѕРІР°РЅР°,
+ * РёСЃРїСЂР°РІР»РµРЅР°, РїРµСЂРµРІРµРґРµРЅР° РЅР° РґСЂСѓРіРёРµ СЏР·С‹РєРё,
+ * Р»РѕРєР°Р»РёР·РѕРІР°РЅР° РёР»Рё РјРѕРґРёС„РёС†РёСЂРѕРІР°РЅР° Р»СЋР±С‹Рј СЃРїРѕСЃРѕР±РѕРј,
+ * РѕС‚РєРѕРјРїРёР»РёСЂРѕРІР°РЅР°, РїРµСЂРµРґР°РЅР° РїРѕ СЃРµС‚Рё СЃ РёР»Рё РЅР°
+ * Р»СЋР±СѓСЋ РєРѕРјРїСЊСЋС‚РµСЂРЅСѓСЋ СЃРёСЃС‚РµРјСѓ Р±РµР· РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕРіРѕ
+ * Р·Р°РєР»СЋС‡РµРЅРёСЏ СЃРѕРіР»Р°С€РµРЅРёСЏ СЃ РєРѕРјРїР°РЅРёРµР№ РљСЂРёРїС‚Рѕ РџСЂРѕ.
+ *
+ * РџСЂРѕРіСЂР°РјРјРЅС‹Р№ РєРѕРґ, СЃРѕРґРµСЂР¶Р°С‰РёР№СЃСЏ РІ СЌС‚РѕРј С„Р°Р№Р»Рµ, РїСЂРµРґРЅР°Р·РЅР°С‡РµРЅ
+ * РёСЃРєР»СЋС‡РёС‚РµР»СЊРЅРѕ РґР»СЏ С†РµР»РµР№ РѕР±СѓС‡РµРЅРёСЏ Рё РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РёСЃРїРѕР»СЊР·РѕРІР°РЅ
+ * РґР»СЏ Р·Р°С‰РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё.
+ *
+ * РљРѕРјРїР°РЅРёСЏ РљСЂРёРїС‚Рѕ-РџСЂРѕ РЅРµ РЅРµСЃРµС‚ РЅРёРєР°РєРѕР№
+ * РѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕСЃС‚Рё Р·Р° С„СѓРЅРєС†РёРѕРЅРёСЂРѕРІР°РЅРёРµ СЌС‚РѕРіРѕ РєРѕРґР°.
+ */
 
 // #define UNIX
 // #define _WIN64
@@ -27,183 +27,181 @@
 // #   include <windows.h>
 // #   include <wincrypt.h>
 // #else
-#   include <string.h>
-#   include <stdlib.h>
-#   include <CSP_WinDef.h>
-#   include <CSP_WinCrypt.h>
+#include <string.h>
+#include <stdlib.h>
+#include <CSP_WinDef.h>
+#include <CSP_WinCrypt.h>
 // #endif
 #include <WinCryptEx.h>
 
-// Начало примера (не следует удалять данный комментарий, он используется 
-// для автоматической сборки документации)
+// РќР°С‡Р°Р»Рѕ РїСЂРёРјРµСЂР° (РЅРµ СЃР»РµРґСѓРµС‚ СѓРґР°Р»СЏС‚СЊ РґР°РЅРЅС‹Р№ РєРѕРјРјРµРЅС‚Р°СЂРёР№, РѕРЅ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ
+// РґР»СЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕР№ СЃР±РѕСЂРєРё РґРѕРєСѓРјРµРЅС‚Р°С†РёРё)
 //--------------------------------------------------------------------
-// Пример создания ключевого контейнера с именем, передаваемым в качестве
-// параметра командной строки. Если параметр не указан, то будет создан 
-// контейнер с именем по умолчанию. В контейнере созданиются два ключа
-// (ключ обмена и ключ подписи).
+// РџСЂРёРјРµСЂ СЃРѕР·РґР°РЅРёСЏ РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР° СЃ РёРјРµРЅРµРј, РїРµСЂРµРґР°РІР°РµРјС‹Рј РІ РєР°С‡РµСЃС‚РІРµ
+// РїР°СЂР°РјРµС‚СЂР° РєРѕРјР°РЅРґРЅРѕР№ СЃС‚СЂРѕРєРё. Р•СЃР»Рё РїР°СЂР°РјРµС‚СЂ РЅРµ СѓРєР°Р·Р°РЅ, С‚Рѕ Р±СѓРґРµС‚ СЃРѕР·РґР°РЅ
+// РєРѕРЅС‚РµР№РЅРµСЂ СЃ РёРјРµРЅРµРј РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ. Р’ РєРѕРЅС‚РµР№РЅРµСЂРµ СЃРѕР·РґР°РЅРёСЋС‚СЃСЏ РґРІР° РєР»СЋС‡Р°
+// (РєР»СЋС‡ РѕР±РјРµРЅР° Рё РєР»СЋС‡ РїРѕРґРїРёСЃРё).
 //--------------------------------------------------------------------
 
-static HCRYPTPROV hCryptProv = 0;        // Дескриптор контекста  критографического провайдера.
-static HCRYPTKEY hKey = 0;               // Дескриптор открытого/закрытого ключа.
+static HCRYPTPROV hCryptProv = 0; // Р”РµСЃРєСЂРёРїС‚РѕСЂ РєРѕРЅС‚РµРєСЃС‚Р°  РєСЂРёС‚РѕРіСЂР°С„РёС‡РµСЃРєРѕРіРѕ РїСЂРѕРІР°Р№РґРµСЂР°.
+static HCRYPTKEY hKey = 0;		  // Р”РµСЃРєСЂРёРїС‚РѕСЂ РѕС‚РєСЂС‹С‚РѕРіРѕ/Р·Р°РєСЂС‹С‚РѕРіРѕ РєР»СЋС‡Р°.
 
 static void CleanUp(void);
 static void HandleError(char *s);
 
+int main(int argc, char *argv[])
+{
+	// РћР±СЉСЏРІР»РµРЅРёРµ Рё РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРµСЂРµРјРµРЅРЅС‹С….
+	LPSTR pszUserName;	 // Р‘СѓС„РµСЂ РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РёРјРµРЅРё  РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°.
+	DWORD dwUserNameLen; // Р”Р»РёРЅР° Р±СѓС„РµСЂР°.
+	LPCSTR UserName;	 // Р”РѕР±Р°РІР»РµРЅРЅРѕРµ РїРѕ РІС‹Р±РѕСЂСѓ РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+						 // Р·РґРµСЃСЊ Р±СѓРґРµС‚ РёСЃРїРѕР»СЊР·РѕРІР°РЅРѕ РєР°Рє РёРјСЏ
+						 // РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР° (РѕРіСЂР°РЅРёС‡РµРЅРёРµ РЅР° 100 СЃРёРјРІРѕР»РѕРІ).
 
+	// РќР°С‡Р°Р»Рѕ РІС‹РїРѕР»РЅРµРЅРёСЏ. РџРѕР»СѓС‡РµРЅРёРµ РёРјРµРЅРё СЃРѕР·РґР°РІР°РµРјРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°.
+	if (argc < 2)
+		HandleError(" using: CreatingKeyContainer.exe <container_name>");
 
-int main(int argc, char *argv[]) 
-{ 
-    // Объявление и инициализация переменных.
-    LPSTR pszUserName;		  // Буфер для хранения имени  ключевого контейнера.
-    DWORD dwUserNameLen;	  // Длина буфера.
-    LPCSTR UserName;	          // Добавленное по выбору имя пользователя 
-			          // здесь будет использовано как имя
-				  // ключевого контейнера (ограничение на 100 символов).
+	UserName = argv[1];
 
-    // Начало выполнения. Получение имени создаваемого контейнера.
-    if(argc < 2) 
-	HandleError(" using: CreatingKeyContainer.exe <container_name>");
-
-    UserName = argv[1];
-
-    //  Для создания нового ключевого контейнера строка второго параметра
-    //  заменяется на NULL здесь и при следующем вызове функции:
-    if(CryptAcquireContextA(
-	&hCryptProv,               // Дескриптор CSP
-	UserName,                  // Имя контейнера 
-	NULL,                      // Использование провайдера по умолчанию
-	PROV_GOST_2012_256,	   // Тип провайдера
-	0))                        // Значения флагов
-    {
-	printf("A cryptcontext with the %s key container has been acquired.\n", UserName);
-    }
-    else
-    { 
-	// Создание нового контейнера. 
-	if(!CryptAcquireContextA(
-	    &hCryptProv, 
-	    UserName, 
-	    NULL, 
-	    PROV_GOST_2012_256, 
-	    CRYPT_NEWKEYSET)) 
+	//  Р”Р»СЏ СЃРѕР·РґР°РЅРёСЏ РЅРѕРІРѕРіРѕ РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР° СЃС‚СЂРѕРєР° РІС‚РѕСЂРѕРіРѕ РїР°СЂР°РјРµС‚СЂР°
+	//  Р·Р°РјРµРЅСЏРµС‚СЃСЏ РЅР° NULL Р·РґРµСЃСЊ Рё РїСЂРё СЃР»РµРґСѓСЋС‰РµРј РІС‹Р·РѕРІРµ С„СѓРЅРєС†РёРё:
+	if (CryptAcquireContextA(
+			&hCryptProv,		// Р”РµСЃРєСЂРёРїС‚РѕСЂ CSP
+			UserName,			// РРјСЏ РєРѕРЅС‚РµР№РЅРµСЂР°
+			NULL,				// РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ РїСЂРѕРІР°Р№РґРµСЂР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+			PROV_GOST_2012_256, // РўРёРї РїСЂРѕРІР°Р№РґРµСЂР°
+			0))					// Р—РЅР°С‡РµРЅРёСЏ С„Р»Р°РіРѕРІ
 	{
-	     HandleError("Could not create a new key container.\n");
+		printf("A cryptcontext with the %s key container has been acquired.\n", UserName);
 	}
-	printf("A new key container has been created.\n");
-    } 
-
-    // Криптографический контекст с ключевым контейнером доступен. Получение
-    // имени ключевого контейнера. 
-    if(!CryptGetProvParam(
-	hCryptProv,               // Дескриптор CSP
-	PP_CONTAINER,             // Получение имени ключевого контейнера
-	NULL,		          // Указатель на имя ключевого контейнера
-	&dwUserNameLen,           // Длина имени
-	0)) 
-    {
-	// Ошибка получении имени ключевого контейнера
-	HandleError("error occurred getting the key container name.");
-    } 
-
-    pszUserName=(char *)malloc((dwUserNameLen+1));
-    
-    if(!CryptGetProvParam(
-	hCryptProv,               // Дескриптор CSP
-	PP_CONTAINER,             // Получение имени ключевого контейнера
-	(LPBYTE)pszUserName,	  // Указатель на имя ключевого контейнера
-	&dwUserNameLen,           // Длина имени
-	0)) 
-    {
-	// Ошибка получении имени ключевого контейнера
-	free(pszUserName);
-	HandleError("error occurred getting the key container name.");
-    }
-    else
-    {
-	printf("A crypto context has been acquired and \n");
-	printf("The name on the key container is %s\n\n", pszUserName);
-	free(pszUserName);
-    }
-
-    // Контекст с ключевым контейнером доступен,
-    // попытка получения дескриптора ключа подписи
-    if(CryptGetUserKey(
-	hCryptProv,                     // Дескриптор CSP
-	AT_SIGNATURE,                   // Спецификация ключа
-	&hKey))                         // Дескриптор ключа
-    {
-	printf("A signature key is available.\n");
-    }
-    else
-    {
-	printf("No signature key is available.\n");
-
-	// Ошибка в том, что контейнер не содержит ключа.
-	if(!(GetLastError() == (DWORD)NTE_NO_KEY)) 
-	    HandleError("An error other than NTE_NO_KEY getting signature key.\n");
-
-	// Создание подписанной ключевой пары. 
-	printf("The signature key does not exist.\n");
-	printf("Creating a signature key pair...\n"); 
-
-	if(!CryptGenKey(
-	    hCryptProv,
-	    AT_SIGNATURE,
-		// CALG_DH_GR3410_12_256_EPHEM,
-	    0,
-	    &hKey)) 
+	else
 	{
-	    HandleError("Error occurred creating a signature key.\n"); 
+		// РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°.
+		if (!CryptAcquireContextA(
+				&hCryptProv,
+				UserName,
+				NULL,
+				PROV_GOST_2012_256,
+				CRYPT_NEWKEYSET))
+		{
+			HandleError("Could not create a new key container.\n");
+		}
+		printf("A new key container has been created.\n");
 	}
-	printf("Created a signature key pair.\n");
 
-    }
+	// РљСЂРёРїС‚РѕРіСЂР°С„РёС‡РµСЃРєРёР№ РєРѕРЅС‚РµРєСЃС‚ СЃ РєР»СЋС‡РµРІС‹Рј РєРѕРЅС‚РµР№РЅРµСЂРѕРј РґРѕСЃС‚СѓРїРµРЅ. РџРѕР»СѓС‡РµРЅРёРµ
+	// РёРјРµРЅРё РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°.
+	if (!CryptGetProvParam(
+			hCryptProv,		// Р”РµСЃРєСЂРёРїС‚РѕСЂ CSP
+			PP_CONTAINER,	// РџРѕР»СѓС‡РµРЅРёРµ РёРјРµРЅРё РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+			NULL,			// РЈРєР°Р·Р°С‚РµР»СЊ РЅР° РёРјСЏ РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+			&dwUserNameLen, // Р”Р»РёРЅР° РёРјРµРЅРё
+			0))
+	{
+		// РћС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёРё РёРјРµРЅРё РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+		HandleError("error occurred getting the key container name.");
+	}
 
-    // Получение ключа обмена: AT_KEYEXCHANGE
-    if(CryptGetUserKey(
-	hCryptProv,
-	AT_KEYEXCHANGE,
-	&hKey)) 
-    {
-	printf("An exchange key exists. \n");
-    }
-    else
-    {
-	printf("No exchange key is available.\n");
-    }
+	pszUserName = (char *)malloc((dwUserNameLen + 1));
 
-    CleanUp();
+	if (!CryptGetProvParam(
+			hCryptProv,			 // Р”РµСЃРєСЂРёРїС‚РѕСЂ CSP
+			PP_CONTAINER,		 // РџРѕР»СѓС‡РµРЅРёРµ РёРјРµРЅРё РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+			(LPBYTE)pszUserName, // РЈРєР°Р·Р°С‚РµР»СЊ РЅР° РёРјСЏ РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+			&dwUserNameLen,		 // Р”Р»РёРЅР° РёРјРµРЅРё
+			0))
+	{
+		// РћС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёРё РёРјРµРЅРё РєР»СЋС‡РµРІРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР°
+		free(pszUserName);
+		HandleError("error occurred getting the key container name.");
+	}
+	else
+	{
+		printf("A crypto context has been acquired and \n");
+		printf("The name on the key container is %s\n\n", pszUserName);
+		free(pszUserName);
+	}
 
-    printf("Everything is okay. A signature key\n");
-    printf("pair and an exchange key exist in\n");
-    printf("the %s key container.\n", UserName);  
+	// РљРѕРЅС‚РµРєСЃС‚ СЃ РєР»СЋС‡РµРІС‹Рј РєРѕРЅС‚РµР№РЅРµСЂРѕРј РґРѕСЃС‚СѓРїРµРЅ,
+	// РїРѕРїС‹С‚РєР° РїРѕР»СѓС‡РµРЅРёСЏ РґРµСЃРєСЂРёРїС‚РѕСЂР° РєР»СЋС‡Р° РїРѕРґРїРёСЃРё
+	if (CryptGetUserKey(
+			hCryptProv,	  // Р”РµСЃРєСЂРёРїС‚РѕСЂ CSP
+			AT_SIGNATURE, // РЎРїРµС†РёС„РёРєР°С†РёСЏ РєР»СЋС‡Р°
+			&hKey))		  // Р”РµСЃРєСЂРёРїС‚РѕСЂ РєР»СЋС‡Р°
+	{
+		printf("A signature key is available.\n");
+	}
+	else
+	{
+		printf("No signature key is available.\n");
 
-    return 0;
+		// РћС€РёР±РєР° РІ С‚РѕРј, С‡С‚Рѕ РєРѕРЅС‚РµР№РЅРµСЂ РЅРµ СЃРѕРґРµСЂР¶РёС‚ РєР»СЋС‡Р°.
+		if (!(GetLastError() == (DWORD)NTE_NO_KEY))
+			HandleError("An error other than NTE_NO_KEY getting signature key.\n");
+
+		// РЎРѕР·РґР°РЅРёРµ РїРѕРґРїРёСЃР°РЅРЅРѕР№ РєР»СЋС‡РµРІРѕР№ РїР°СЂС‹.
+		printf("The signature key does not exist.\n");
+		printf("Creating a signature key pair...\n");
+
+		if (!CryptGenKey(
+				hCryptProv,
+				AT_SIGNATURE,
+				// CALG_DH_GR3410_12_256_EPHEM,
+				0,
+				&hKey))
+		{
+			HandleError("Error occurred creating a signature key.\n");
+		}
+		printf("Created a signature key pair.\n");
+	}
+
+	// РџРѕР»СѓС‡РµРЅРёРµ РєР»СЋС‡Р° РѕР±РјРµРЅР°: AT_KEYEXCHANGE
+	if (CryptGetUserKey(
+			hCryptProv,
+			AT_KEYEXCHANGE,
+			&hKey))
+	{
+		printf("An exchange key exists. \n");
+	}
+	else
+	{
+		printf("No exchange key is available.\n");
+	}
+
+	CleanUp();
+
+	printf("Everything is okay. A signature key\n");
+	printf("pair and an exchange key exist in\n");
+	printf("the %s key container.\n", UserName);
+
+	return 0;
 }
 
-// Конец примера 
-// (не следует удалять данный комментарий, он используется 
-//  для автоматической сборки документации)
+// РљРѕРЅРµС† РїСЂРёРјРµСЂР°
+// (РЅРµ СЃР»РµРґСѓРµС‚ СѓРґР°Р»СЏС‚СЊ РґР°РЅРЅС‹Р№ РєРѕРјРјРµРЅС‚Р°СЂРёР№, РѕРЅ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ
+//  РґР»СЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕР№ СЃР±РѕСЂРєРё РґРѕРєСѓРјРµРЅС‚Р°С†РёРё)
 
 void CleanUp(void)
 {
-    if(hKey) 
-	CryptDestroyKey(hKey); 
-    if(hCryptProv) 
-	CryptReleaseContext(hCryptProv, 0); 
+	if (hKey)
+		CryptDestroyKey(hKey);
+	if (hCryptProv)
+		CryptReleaseContext(hCryptProv, 0);
 }
 
 //--------------------------------------------------------------------
-//  В этом примере используется функция HandleError, функция обработки
-//  простых ошибок, для печати сообщения и выхода из программы. 
-//  В большинстве приложений эта функция заменяется другой функцией, 
-//  которая выводит более полное сообщение об ошибке.
+//  Р’ СЌС‚РѕРј РїСЂРёРјРµСЂРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С„СѓРЅРєС†РёСЏ HandleError, С„СѓРЅРєС†РёСЏ РѕР±СЂР°Р±РѕС‚РєРё
+//  РїСЂРѕСЃС‚С‹С… РѕС€РёР±РѕРє, РґР»СЏ РїРµС‡Р°С‚Рё СЃРѕРѕР±С‰РµРЅРёСЏ Рё РІС‹С…РѕРґР° РёР· РїСЂРѕРіСЂР°РјРјС‹.
+//  Р’ Р±РѕР»СЊС€РёРЅСЃС‚РІРµ РїСЂРёР»РѕР¶РµРЅРёР№ СЌС‚Р° С„СѓРЅРєС†РёСЏ Р·Р°РјРµРЅСЏРµС‚СЃСЏ РґСЂСѓРіРѕР№ С„СѓРЅРєС†РёРµР№,
+//  РєРѕС‚РѕСЂР°СЏ РІС‹РІРѕРґРёС‚ Р±РѕР»РµРµ РїРѕР»РЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РѕР± РѕС€РёР±РєРµ.
 void HandleError(char *s)
 {
-    DWORD err = GetLastError();
-    printf("Error number     : 0x%x\n", err);
-    printf("Error description: %s\n", s);
-    CleanUp();
-    if(!err) err = 1;
-    exit(err);
+	DWORD err = GetLastError();
+	printf("Error number     : 0x%x\n", err);
+	printf("Error description: %s\n", s);
+	CleanUp();
+	if (!err)
+		err = 1;
+	exit(err);
 }
