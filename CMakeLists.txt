@@ -4,6 +4,7 @@ project(cryptopro VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
+#  Main Project
 add_executable(cryptopro main.cpp)
 
 target_compile_definitions(cryptopro PUBLIC 
@@ -21,6 +22,7 @@ target_include_directories(cryptopro PUBLIC
 )
 target_link_libraries(cryptopro crypto ssp capi10 rdrsup pthread)
 
+# Signing hash Project
 add_executable(signing-hash signing-hash.cpp)
 
 target_compile_definitions(signing-hash PUBLIC 
@@ -38,6 +40,7 @@ target_include_directories(signing-hash PUBLIC
 )
 target_link_libraries(signing-hash crypto ssp capi10 rdrsup pthread)
 
+# Signing hash Project 2
 add_executable(signing-hash-2 signing-hash-2.cpp)
 
 target_compile_definitions(signing-hash-2 PUBLIC 
@@ -55,6 +58,7 @@ target_include_directories(signing-hash-2 PUBLIC
 )
 target_link_libraries(signing-hash-2 crypto ssp capi10 rdrsup pthread)
 
+# Signing hash etalon Project
 add_executable(signing-hash-etalon signing-hash-etalon.cpp)
 
 target_compile_definitions(signing-hash-etalon PUBLIC 
@@ -72,6 +76,7 @@ target_include_directories(signing-hash-etalon PUBLIC
 )
 target_link_libraries(signing-hash-etalon crypto ssp capi10 rdrsup pthread)
 
+# Multi sign hash Project
 add_executable(multi-sign-hash multi-sign-hash.cpp crypto.cpp)
 
 target_compile_definitions(multi-sign-hash PUBLIC 
@@ -89,6 +94,7 @@ target_include_directories(multi-sign-hash PUBLIC
 )
 target_link_libraries(multi-sign-hash crypto ssp capi10 rdrsup pthread)
 
+# Create container if not already created
 add_executable(create-cont-if-not-exist create-cont-if-not-exist.cpp)
 
 target_compile_definitions(create-cont-if-not-exist PUBLIC 
