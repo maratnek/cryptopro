@@ -37,6 +37,7 @@
 #include <string>
 #include <chrono>
 #include <iostream>
+#include <vector>
 using namespace std::chrono;
 
 // Начало примера (не следует удалять данный комментарий, он используется
@@ -61,10 +62,14 @@ private:
 
     const char *CONTAINER = "\\\\.\\HDIMAGE\\cbr2";
 
+    const char *_pin = "1234";
+
+    void CleanUp(void);
 public:
     Crypto(/* args */);
     ~Crypto();
-    void CleanUp(void);
+
+    void createContainer(std::string const& name);
 
     void HandleError(const char *s);
     HCRYPTHASH hash(const char *data);
@@ -74,25 +79,166 @@ public:
 
 Crypto::Crypto(/* args */)
 {
+
+    // create container if container doesn't exist
+    this->createContainer(CONTAINER);
     //-------------------------------------------------------------
     // Объявление и инициализация переменных.
 
     // Получение дескриптора контекста криптографического провайдера.
-    if (CryptAcquireContext(
-            &_hProv,
-            CONTAINER,
-            NULL,
-            PROV_GOST_2012_256,
-            0))
-    {
-        printf("CSP context acquired.\n");
-    }
-    else
-    {
-        HandleError("Error during CryptAcquireContext.");
+    // if (CryptAcquireContext(
+    //         &_hProv,
+    //         CONTAINER,
+    //         NULL,
+    //         PROV_GOST_2012_256,
+    //         0))
+    // {
+    //     printf("CSP context acquired.\n");
+    // }
+    // else
+    // {
+    //     HandleError("Error during CryptAcquireContext.");
+    // }
+}
+
+// create container by name
+void Crypto::createContainer(std::string const& name) 
+{
+	// Объявление и инициализация переменных.
+	LPSTR pszUserName;	 // Буфер для хранения имени  ключевого контейнера.
+	DWORD dwUserNameLen; // Длина буфера.
+	LPCSTR UserName;	 // Добавленное по выбору имя пользователя
+						 // здесь будет использовано как имя
+						 // ключевого контейнера (ограничение на 100 символов).
+
+	// Начало выполнения. Получение имени создаваемого контейнера.
+	if (name.empty()) {
+		HandleError(" using: CreatingKeyContainer.exe <container_name>");
     }
 
+	UserName = name.c_str();
 
+	//  Для создания нового ключевого контейнера строка второго параметра
+	//  заменяется на NULL здесь и при следующем вызове функции:
+	if (CryptAcquireContextA(
+			&_hProv,		// Дескриптор CSP
+			UserName,			// Имя контейнера
+			NULL,				// Использование провайдера по умолчанию
+			PROV_GOST_2012_256, // Тип провайдера
+			0))					// Значения флагов
+	{
+		printf("A cryptcontext with the %s key container has been acquired.\n", UserName);
+	}
+	else
+	{
+		// Создание нового контейнера.
+		if (!CryptAcquireContextA(
+				&_hProv,
+				UserName,
+				NULL,
+				PROV_GOST_2012_256,
+				CRYPT_NEWKEYSET))
+		{
+			HandleError("Could not create a new key container.\n");
+		}
+
+		// install pin
+		if (!CryptSetProvParam(_hProv, PP_KEYEXCHANGE_PIN, (LPBYTE)_pin, 0 ))
+		{
+		    printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
+		}
+		printf("A new key container has been created.\n");
+	}
+
+		// install pin
+		if (!CryptSetProvParam(_hProv, PP_KEYEXCHANGE_PIN, (LPBYTE)_pin, 0 ))
+		{
+		    printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
+		}
+		printf("A new key container has been created.\n");
+
+	// Криптографический контекст с ключевым контейнером доступен. Получение
+	// имени ключевого контейнера.
+	if (!CryptGetProvParam(
+			_hProv,		// Дескриптор CSP
+			PP_CONTAINER,	// Получение имени ключевого контейнера
+			NULL,			// Указатель на имя ключевого контейнера
+			&dwUserNameLen, // Длина имени
+			0))
+	{
+		// Ошибка получении имени ключевого контейнера
+		HandleError("error occurred getting the key container name.");
+	}
+
+	pszUserName = (char *)malloc((dwUserNameLen + 1));
+
+	if (!CryptGetProvParam(
+			_hProv,			 // Дескриптор CSP
+			PP_CONTAINER,		 // Получение имени ключевого контейнера
+			(LPBYTE)pszUserName, // Указатель на имя ключевого контейнера
+			&dwUserNameLen,		 // Длина имени
+			0))
+	{
+		// Ошибка получении имени ключевого контейнера
+		free(pszUserName);
+		HandleError("error occurred getting the key container name.");
+	}
+	else
+	{
+		printf("A crypto context has been acquired and \n");
+		printf("The name on the key container is %s\n\n", pszUserName);
+		free(pszUserName);
+	}
+
+	// Контекст с ключевым контейнером доступен,
+	// попытка получения дескриптора ключа подписи
+	if (CryptGetUserKey(
+			_hProv,	  // Дескриптор CSP
+			AT_SIGNATURE, // Спецификация ключа
+			&_hKey))		  // Дескриптор ключа
+	{
+		printf("A signature key is available.\n");
+	}
+	else
+	{
+		printf("No signature key is available.\n");
+
+		// Ошибка в том, что контейнер не содержит ключа.
+		if (!(GetLastError() == (DWORD)NTE_NO_KEY))
+			HandleError("An error other than NTE_NO_KEY getting signature key.\n");
+
+		// Создание подписанной ключевой пары.
+		printf("The signature key does not exist.\n");
+		printf("Creating a signature key pair...\n");
+
+		if (!CryptGenKey(
+				_hProv,
+				AT_SIGNATURE,
+				// CALG_DH_GR3410_12_256_EPHEM,
+				0,
+				&_hKey))
+		{
+			HandleError("Error occurred creating a signature key.\n");
+		}
+		printf("Created a signature key pair.\n");
+	}
+
+	// Получение ключа обмена: AT_KEYEXCHANGE
+	if (CryptGetUserKey(
+			_hProv,
+			AT_KEYEXCHANGE,
+			&_hKey))
+	{
+		printf("An exchange key exists. \n");
+	}
+	else
+	{
+		printf("No exchange key is available.\n");
+	}
+
+	printf("Everything is okay. A signature key\n");
+	printf("pair and an exchange key exist in\n");
+	printf("the %s key container.\n", UserName);
 
 }
 
@@ -438,11 +584,15 @@ void Crypto::HandleError(const char *s)
     exit(err);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    try{
+
     Crypto sign;
     auto dwSigLen = 0;
     std::string my_new_data_for_sign = "My some data for signing";
+
+
     auto count = 100000;
     auto start = system_clock::now();
     for (size_t i = 0; i < count; i++)
@@ -455,5 +605,26 @@ int main(void)
     auto end = system_clock::now();
     std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count()/1000.0 << std::endl;
 
+
+    // new test 
+    // prepare transaction
+    struct Transaction {
+        std::string _some_message;
+    };
+    std::vector<Transaction> transactions;
+    for (size_t i = 0; i < count; i++)
+    {
+        
+    }
+    
+    // verify transactions
+
+    }
+    catch (char const* exception){
+        std::cerr << argv[0] << " Exception: " << exception << std::endl;
+    }
+    catch (...){
+        std::cerr << argv[0] << " Some exception. " << std::endl;
+    }
     return 0;
 }
