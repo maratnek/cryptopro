@@ -4,6 +4,9 @@ project(cryptopro VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CXX_STANDARD 17)
+
 #  Main Project
 add_executable(cryptopro main.cpp)
 
