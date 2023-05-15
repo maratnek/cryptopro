@@ -10,6 +10,7 @@ set(CXX_STANDARD 17)
 #  Main Project
 add_executable(cryptopro main.cpp)
 
+
 target_compile_definitions(cryptopro PUBLIC 
     SIZEOF_VOID_P=8 
     UNIX
@@ -114,6 +115,25 @@ target_include_directories(create-cont-if-not-exist PUBLIC
     /opt/cprocsp/include/cpcsp
 )
 target_link_libraries(create-cont-if-not-exist crypto ssp capi10 rdrsup pthread)
+
+
+#  Test Crypto lib Project
+add_executable(test-crypto test-crypto.cpp crypto.cpp)
+
+target_compile_definitions(test-crypto PUBLIC 
+    SIZEOF_VOID_P=8 
+    UNIX
+    HAVE_LIMITS_H
+    HAVE_STD_INT_H
+    COMPACT
+)
+target_link_directories(test-crypto PUBLIC /opt/cprocsp/lib/amd64)
+target_include_directories(test-crypto PUBLIC 
+    /opt/cprocsp 
+    /opt/cprocsp/include/ 
+    /opt/cprocsp/include/cpcsp
+)
+target_link_libraries(test-crypto crypto ssp capi10 rdrsup pthread)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
