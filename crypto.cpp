@@ -2,6 +2,11 @@
 
 using namespace crypto;
 
+Crypto::Crypto(std::string const &name)
+{
+    this->createContainer("\\\\.\\HDIMAGE\\" + name);
+}
+
 void Crypto::showHash() const
 {
     //--------------------------------------------------------------------
@@ -11,59 +16,171 @@ void Crypto::showHash() const
     DWORD cbHash = GR3411LEN;
     if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
     {
-        // CryptDestroyHash(_hHash);
-        // CryptReleaseContext(_hProv, 0);
-        // HandleError("CryptGetHashParam failed");
-        // TODO Error
         return;
     }
 
     printf("GR3411 hash of file is: ");
-    for(DWORD i = 0; i < cbHash; i++)
+    for (DWORD i = 0; i < cbHash; i++)
     {
-	printf("%c%c", rgbDigits[rgbHash[i] >> 4],
-	    rgbDigits[rgbHash[i] & 0xf]);
+        printf("%c%c", rgbDigits[rgbHash[i] >> 4],
+               rgbDigits[rgbHash[i] & 0xf]);
     }
     printf("\n");
 }
 
-T_PAIR_BYTE Crypto::hash_byte(const char *data)
+T_PAIR_BYTE Crypto::hashByte(const char *data)
 {
     this->hash(data);
     T_UNIQP_BYTE rgbHash = std::make_unique<BYTE[]>(GR3411LEN);
     DWORD cbHash = GR3411LEN;
     if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash.get(), &cbHash, 0))
     {
-        // CryptDestroyHash(_hHash);
-        // CryptReleaseContext(_hProv, 0);
-        // HandleError("CryptGetHashParam failed");
-        // TODO Error
         return {std::move(rgbHash), cbHash};
     }
 
     return {std::move(rgbHash), cbHash};
 }
 
-Crypto::Crypto(/* args */)
+// create container by name
+void Crypto::createContainer(std::string const &name)
 {
-    //-------------------------------------------------------------
     // Объявление и инициализация переменных.
+    LPSTR pszUserName;   // Буфер для хранения имени  ключевого контейнера.
+    DWORD dwUserNameLen; // Длина буфера.
+    LPCSTR UserName;     // Добавленное по выбору имя пользователя
+                         // здесь будет использовано как имя
+                         // ключевого контейнера (ограничение на 100 символов).
 
-    // Получение дескриптора контекста криптографического провайдера.
-    if (CryptAcquireContext(
-            &_hProv,
-            CONTAINER,
-            NULL,
-            PROV_GOST_2012_256,
-            0))
+    // Начало выполнения. Получение имени создаваемого контейнера.
+    if (name.empty())
     {
-        printf("CSP context acquired.\n");
+        this->handleError(" using: CreatingKeyContainer.exe <container_name>");
+    }
+
+    UserName = name.c_str();
+
+    //  Для создания нового ключевого контейнера строка второго параметра
+    //  заменяется на NULL здесь и при следующем вызове функции:
+    if (CryptAcquireContext(
+            &_hProv,            // Дескриптор CSP
+            UserName,           // Имя контейнера
+            NULL,               // Использование провайдера по умолчанию
+            PROV_GOST_2012_256, // Тип провайдера
+            0))                 // Значения флагов
+    {
+        printf("A cryptcontext with the %s key container has been acquired.\n", UserName);
     }
     else
     {
-        HandleError("Error during CryptAcquireContext.");
+        // Создание нового контейнера.
+        if (!CryptAcquireContext(
+                &_hProv,
+                UserName,
+                NULL,
+                PROV_GOST_2012_256,
+                CRYPT_NEWKEYSET))
+        {
+            handleError("Could not create a new key container.\n");
+        }
     }
 
+    // install pin
+    if (!CryptSetProvParam(_hProv, PP_KEYEXCHANGE_PIN, (LPBYTE)_pin, 0))
+    {
+        printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
+    }
+    printf("A new key container has been created.\n");
+
+    // Криптографический контекст с ключевым контейнером доступен. Получение
+    // имени ключевого контейнера.
+    if (!CryptGetProvParam(
+            _hProv,         // Дескриптор CSP
+            PP_CONTAINER,   // Получение имени ключевого контейнера
+            NULL,           // Указатель на имя ключевого контейнера
+            &dwUserNameLen, // Длина имени
+            0))
+    {
+        // Ошибка получении имени ключевого контейнера
+        handleError("error occurred getting the key container name.");
+    }
+
+    pszUserName = (char *)malloc((dwUserNameLen + 1));
+
+    if (!CryptGetProvParam(
+            _hProv,              // Дескриптор CSP
+            PP_CONTAINER,        // Получение имени ключевого контейнера
+            (LPBYTE)pszUserName, // Указатель на имя ключевого контейнера
+            &dwUserNameLen,      // Длина имени
+            0))
+    {
+        // Ошибка получении имени ключевого контейнера
+        free(pszUserName);
+        handleError("error occurred getting the key container name.");
+    }
+    else
+    {
+        printf("A crypto context has been acquired and \n");
+        printf("The name on the key container is %s\n\n", pszUserName);
+        free(pszUserName);
+    }
+
+    // Контекст с ключевым контейнером доступен,
+    // попытка получения дескриптора ключа подписи
+    if (CryptGetUserKey(
+            _hProv,       // Дескриптор CSP
+            AT_SIGNATURE, // Спецификация ключа
+            &_hKey))      // Дескриптор ключа
+    {
+        printf("A signature key is available.\n");
+    }
+    else
+    {
+        printf("No signature key is available.\n");
+
+        // Ошибка в том, что контейнер не содержит ключа.
+        if (!(GetLastError() == (DWORD)NTE_NO_KEY))
+            handleError("An error other than NTE_NO_KEY getting signature key.\n");
+
+        // Создание подписанной ключевой пары.
+        printf("The signature key does not exist.\n");
+        printf("Creating a signature key pair...\n");
+
+        if (!CryptGenKey(
+                _hProv,
+                AT_SIGNATURE,
+                // CALG_DH_GR3410_12_256_EPHEM,
+                0,
+                &_hKey))
+        {
+            handleError("Error occurred creating a signature key.\n");
+        }
+        printf("Created a signature key pair.\n");
+    }
+
+    // Получение ключа обмена: AT_KEYEXCHANGE
+    if (CryptGetUserKey(
+            _hProv,
+            AT_KEYEXCHANGE,
+            &_hKey))
+    {
+        printf("An exchange key exists. \n");
+    }
+    else
+    {
+        printf("No exchange key is available.\n");
+    }
+
+    printf("Everything is okay. A signature key\n");
+    printf("pair and an exchange key exist in\n");
+    printf("the %s key container.\n", UserName);
+}
+
+HCRYPTHASH Crypto::hash(const char *data)
+{
+
+    BYTE *pbBuffer = (BYTE *)data;
+    DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
+    DWORD dwBlobLen;
     DWORD cbHash;
     //--------------------------------------------------------------------
     // Создание объекта функции хэширования.
@@ -79,9 +196,10 @@ Crypto::Crypto(/* args */)
     }
     else
     {
-        HandleError("Error during CryptCreateHash.");
+        handleError("Error during CryptCreateHash.");
     }
-  //--------------------------------------------------------------------
+
+    //--------------------------------------------------------------------
     // Передача параметра HP_OID объекта функции хэширования.
     //--------------------------------------------------------------------
 
@@ -98,57 +216,35 @@ Crypto::Crypto(/* args */)
     }
     else
     {
-        HandleError("Error computing BLOB length.");
+        handleError("Error computing BLOB length.");
     }
 
-
     if (!_pbHash)
-        _pbHash = T_SHARP_BYTE(new BYTE[cbHash]);;
-    if (!_pbHash)
-        HandleError("Out of memory. \n");
-
-    // Копирование параметра HP_OID в pbHash.
-    if (CryptGetHashParam(_hHash,
-                          HP_OID,
-                          _pbHash.get(),
-                          &cbHash,
-                          0))
     {
-        // printf("Parameters have been written to the pbHash. \n");
+        _pbHash = std::make_unique<BYTE[]>(cbHash);
+    }
+
+    if (!_pbHash)
+    {
+        handleError("Out of memory. \n");
     }
     else
     {
-        HandleError("Error during CryptGetHashParam.");
+        // Копирование параметра HP_OID в pbHash.
+        if (CryptGetHashParam(_hHash,
+                              HP_OID,
+                              _pbHash.get(),
+                              &cbHash,
+                              0))
+        {
+            // printf("Parameters have been written to the pbHash. \n");
+        }
+        else
+        {
+            handleError("Error during CryptGetHashParam.");
+        }
     }
 
-    this->InitPubKey();
-
-}
-
-HCRYPTHASH Crypto::hash(const char *data)
-{
-
-    BYTE *pbBuffer = (BYTE*)data; 
-    DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
-  //--------------------------------------------------------------------
-    // Создание объекта функции хэширования.
-
-    if (CryptCreateHash(
-            _hProv,
-            CALG_GR3411_2012_256,
-            0,
-            0,
-            &_hHash))
-    {
-        // printf("Hash object created. \n");
-    }
-    else
-    {
-        HandleError("Error during CryptCreateHash.");
-    }
-  
-    if (!_pbHash)
-        HandleError("Out of memory. \n");
     //--------------------------------------------------------------------
     // Вычисление криптографического хэша буфера.
 
@@ -162,15 +258,16 @@ HCRYPTHASH Crypto::hash(const char *data)
     }
     else
     {
-        HandleError("Error during CryptHashData.");
+        handleError("Error during CryptHashData.");
     }
-    return _hHash;
 
+    return _hHash;
 }
 
-DWORD Crypto::Sign(const char* data)
+T_SIGN_BYTE Crypto::sign(const char *data)
 {
-    _hHash = this->hash((char*)data);
+    _hHash = this->hash((char *)data);
+    // this->showHash(_hHash);
     // Определение размера подписи и распределение памяти.
     DWORD dwSigLen = 0;
     if (CryptSignHash(
@@ -185,45 +282,54 @@ DWORD Crypto::Sign(const char* data)
     }
     else
     {
-        HandleError("Error during CryptSignHash.");
+        handleError("Error during CryptSignHash.");
     }
     //--------------------------------------------------------------------
     // Распределение памяти под буфер подписи.
     if (!_pbSignature)
-        _pbSignature = T_SHARP_BYTE(new BYTE[dwSigLen]);
-    if (!_pbSignature)
-        HandleError("Out of memory.");
-
-    // Подпись объекта функции хэширования.
-    if (CryptSignHash(
-            _hHash,
-            AT_SIGNATURE,
-            NULL,
-            0,
-            _pbSignature.get(),
-            &dwSigLen))
     {
-        // printf("pbSignature is the hash signature.\n");
+        _pbSignature = std::shared_ptr<BYTE[]>(new BYTE[dwSigLen]);
+    }
+    // if (!_pbSignature)
+    // _pbSignature = new BYTE[dwSigLen]; ;
+    if (!_pbSignature)
+    {
+        handleError("Out of memory.");
     }
     else
     {
-        HandleError("Error during CryptSignHash.");
+        // Подпись объекта функции хэширования.
+        if (CryptSignHash(
+                _hHash,
+                AT_SIGNATURE,
+                NULL,
+                0,
+                _pbSignature.get(),
+                &dwSigLen))
+        {
+            // printf("pbSignature is the hash signature.\n");
+        }
+        else
+        {
+            handleError("Error during CryptSignHash.");
+        }
     }
 
     // Уничтожение объекта функции хэширования.
     if (_hHash)
+    {
         CryptDestroyHash(_hHash);
+    }
 
     // printf("The hash object has been destroyed.\n");
     // printf("The signing phase of this program is completed.\n\n");
 
-    return dwSigLen;
+    return {_pbSignature, dwSigLen};
 }
 
-void Crypto::InitPubKey()
+T_PUBLIC_KEY Crypto::getPublicKey()
 {
     DWORD dwBlobLen = 0;
-
     //--------------------------------------------------------------------
     // Получение открытого ключа подписи. Этот открытый ключ будет
     // использоваться получателем хэша для проверки подписи.
@@ -235,11 +341,11 @@ void Crypto::InitPubKey()
             AT_SIGNATURE,
             &_hKey))
     {
-        printf("The signature key has been acquired. \n");
+        // printf("The signature key has been acquired. \n");
     }
     else
     {
-        HandleError("Error during CryptGetUserKey for signkey.");
+        handleError("Error during CryptGetUserKey for signkey.");
     }
     //--------------------------------------------------------------------
     // Экпорт открытого ключа. Здесь открытый ключ экспортируется в
@@ -259,16 +365,17 @@ void Crypto::InitPubKey()
     }
     else
     {
-        HandleError("Error computing BLOB length.");
+        handleError("Error computing BLOB length.");
     }
     //--------------------------------------------------------------------
     // Распределение памяти под pbKeyBlob.
     // _pbKeyBlob = (BYTE *)malloc(dwBlobLen);
-    // T_SHARP_BYTE p_pub_key = std::make_shared<BYTE[]>(dwBlobLen, 0);
-    T_SHARP_BYTE p_pub_key = T_SHARP_BYTE(new BYTE[dwBlobLen]);;
+    // if (!_pbKeyBlob)
+    //     _pbKeyBlob = new BYTE[dwBlobLen];
+    auto pbKeyBlob = T_SHARP_BYTE(new BYTE[dwBlobLen]);
 
-    if (!p_pub_key)
-        HandleError("Out of memory. \n");
+    if (!pbKeyBlob)
+        handleError("Out of memory. \n");
 
     // Сам экспорт в ключевой BLOB.
     if (CryptExportKey(
@@ -276,37 +383,49 @@ void Crypto::InitPubKey()
             0,
             PUBLICKEYBLOB,
             0,
-            // _pbKeyBlob,
-            p_pub_key.get(),
+            pbKeyBlob.get(),
             &dwBlobLen))
     {
         // printf("Contents have been written to the BLOB. \n");
     }
     else
     {
-        HandleError("Error during CryptExportKey.");
+        handleError("Error during CryptExportKey.");
     }
-    _pub_key = {p_pub_key, dwBlobLen};
+    return {pbKeyBlob, dwBlobLen};
 }
 
-T_PUBLIC_KEY Crypto::getPublicKey()
+bool Crypto::verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBLIC_KEY pubkey)
 {
-    return _pub_key;
-}
+    //--------------------------------------------------------------------
+    // Во второй части программы проверяется подпись.
+    // Чаще всего проверка осуществляется в случае, когда различные
+    // пользователи используют одну и ту же программу. Хэш, подпись,
+    // а также PUBLICKEYBLOB могут быть прочитаны из файла, e-mail сообщения
+    // или из другого источника.
 
+    // Здесь используюся определенные ранее pbBuffer, pbSignature,
+    // szDescription, pbKeyBlob и их длины.
 
-bool Crypto::Verify(const char* data, DWORD dwSigLen, T_PUBLIC_KEY pub_key)
-{
+    // Содержимое буфера pbBuffer представляет из себя некоторые
+    // подписанные ранее данные.
+
+    // Указатель szDescription на текст, описывающий данные, подписывается.
+    // Это тот же самый текст описания, который был ранее передан
+    // функции CryptSignHash.
+
+    //--------------------------------------------------------------------
+    // Получение откытого ключа пользователя, который создал цифровую подпись,
+    // и импортирование его в CSP с помощью функции CryptImportKey. Она
+    // возвращает дескриптор открытого ключа в hPubKey.
+
     BYTE *pbBuffer = (BYTE *)data;
     DWORD dwBufferLen = (DWORD)(strlen((char *)pbBuffer) + 1);
 
-    DWORD dwBlobLen = pub_key.second;
-    auto p_pub_key = pub_key.first;
-    
     if (CryptImportKey(
             _hProv,
-            p_pub_key.get(),
-            dwBlobLen,
+            pubkey.first.get(), // arr
+            pubkey.second,      // size
             0,
             0,
             &_hPubKey))
@@ -315,17 +434,16 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen, T_PUBLIC_KEY pub_key)
     }
     else
     {
-        HandleError("Public key import failed.");
+        handleError("Public key import failed.");
     }
     //--------------------------------------------------------------------
     // Проверка цифровой подписи.
-
     // Вычисление криптографического хэша буфера.
-    _hHash = this->hash((char*)pbBuffer);
+    _hHash = this->hash((char *)pbBuffer);
 
     if (CryptVerifySignature(
             _hHash,
-            _pbSignature.get(),
+            pbSignature.get(),
             dwSigLen,
             _hPubKey,
             NULL,
@@ -343,23 +461,27 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen, T_PUBLIC_KEY pub_key)
 
 Crypto::~Crypto()
 {
-    try {
-        CleanUp();
+    try
+    {
+        cleanUp();
     }
-    catch (...) {
+    catch (...)
+    {
         std::cerr << "Destructor Crypto was failed" << std::endl;
     }
 }
 
-
-void Crypto::CleanUp(void)
+void Crypto::cleanUp(void)
 {
     // if (_pbSignature)
-    //     delete[] _pbSignature;
+    // free(_pbSignature);
+    // delete[] _pbSignature;
     // if (_pbHash)
-    //     delete[] _pbHash;
+    // free(_pbHash);
+    // delete[] _pbHash;
     // if (_pbKeyBlob)
-        // delete[] _pbKeyBlob;
+    // free(_pbKeyBlob);
+    // delete[] _pbKeyBlob;
 
     // Уничтожение объекта функции хэширования.
     if (_hHash)
@@ -376,12 +498,22 @@ void Crypto::CleanUp(void)
         CryptReleaseContext(_hProv, 0);
 }
 
-void Crypto::HandleError(const char *s)
+// Конец примера
+// (не следует удалять данный комментарий, он используется
+//  для автоматической сборки документации)
+
+//--------------------------------------------------------------------
+//  В этом примере используется функция HandleError, функция обработки
+//  простых ошибок, для печати сообщения и выхода из программы.
+//  В большинстве приложений эта функция заменяется другой функцией,
+//  которая выводит более полное сообщение об ошибке.
+
+void Crypto::handleError(const char *s)
 {
     DWORD err = GetLastError();
     printf("Error number     : 0x%x\n", err);
     printf("Error description: %s\n", s);
-    CleanUp();
+    cleanUp();
     if (!err)
         err = 1;
     exit(err);
