@@ -25,33 +25,49 @@ int main(int argc, char **argv)
     {
 
 // prepare test
-        Crypto sign("Sign");
-        Crypto verify("Verify");
+        // Crypto sign("Sign");
+        // Crypto verify("Verify");
         auto dwSigLen = 0;
 
         auto count = 100000;
         std::vector<Transaction> transactions(count);
-        for (size_t i = 0; i < count; i++)
-        {
-            Transaction tr;
-            tr._some_message = "My some data for signing. This is the text.";
-            tr._signature = sign.sign(tr._some_message.c_str());
-            tr._pbKey = sign.getPublicKey();
-            transactions[i] = std::move(tr);
-        }
+
+{
+        auto start = system_clock::now();
+        lamda_multi_thread([&transactions](size_t i, size_t max_count)
+                           {
+                                Crypto sign("Sign");
+                                for (; i < max_count; i++)
+                                {
+                                    Transaction tr;
+                                    tr._some_message = "My some data for signing. This is the text.";
+                                    tr._signature = sign.sign(tr._some_message.c_str());
+                                    tr._pbKey = sign.getPublicKey();
+                                    transactions[i] = std::move(tr);
+                                }
+                           } 
+                           ,
+                           count);
+        auto end = system_clock::now();
+        std::cout << "Prepare Crypto time is: " << duration_cast<milliseconds>(end - start).count() / 1000.0 << std::endl;
+}
 
         // verify transactions
         std::cout << "Starting verify transaction..." << std::endl;
+
         auto start = system_clock::now();
-        for (size_t i = 0; i < count; i++)
-        {
-            auto tr = transactions[i];
-            // std::cout << "Transaction " << tr._some_message << std::endl;
-            if (!verify.verify(tr._some_message.c_str(), tr._signature.second, tr._signature.first, tr._pbKey))
-            {
-                throw "Exception bad verify";
-            }
-        }
+        lamda_multi_thread([&transactions](size_t i, size_t max_count)
+                           {
+                                Crypto verify("Verify");
+                                for (; i < max_count; i++)
+                                {
+                                    auto tr = transactions[i];
+                                    if (!verify.verify(tr._some_message.c_str(), tr._signature.second, tr._signature.first, tr._pbKey))
+                                        throw "Exception bad verify";
+                                }
+                           } 
+                           ,
+                           count);
         auto end = system_clock::now();
         std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count() / 1000.0 << std::endl;
     }
