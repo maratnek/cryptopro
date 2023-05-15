@@ -34,11 +34,14 @@
 #include <WinCryptEx.h>
 
 // my
+#include <memory>
 #include <string>
 #include <chrono>
 #include <iostream>
 #include <vector>
 using namespace std::chrono;
+
+#include "verify.hpp"
 
 // Начало примера (не следует удалять данный комментарий, он используется
 // для автоматической сборки документации)
@@ -52,13 +55,17 @@ class Crypto
 {
 private:
     /* data */
-    HCRYPTPROV _hProv = 0;
-    HCRYPTHASH _hHash = 0;
-    HCRYPTKEY _hKey = 0;
-    HCRYPTKEY _hPubKey = 0;
-    BYTE *_pbHash = NULL;
-    BYTE *_pbSignature = NULL;
-    BYTE *_pbKeyBlob = NULL;
+    // struct ContainerData {
+        HCRYPTPROV _hProv = 0;
+        HCRYPTHASH _hHash = 0;
+        HCRYPTKEY _hKey = 0;
+        HCRYPTKEY _hPubKey = 0;
+    // } _container;
+
+    std::unique_ptr<BYTE[]> _pbHash;
+    std::shared_ptr<BYTE[]> _pbSignature;
+    // BYTE *_pbSignature = NULL;
+    // BYTE *_pbKeyBlob = NULL;
 
     const char *CONTAINER = "\\\\.\\HDIMAGE\\cbr2";
 
@@ -67,38 +74,52 @@ private:
     void CleanUp(void);
 public:
     Crypto(/* args */);
+    Crypto(std::string const& name);
     ~Crypto();
 
     void createContainer(std::string const& name);
 
     void HandleError(const char *s);
     HCRYPTHASH hash(const char *data);
-    bool Verify(const char* data, DWORD dwSigLen);
-    DWORD Sign(const char* data);
+    // bool Verify(const char* data, DWORD dwSigLen);
+    // bool Verify(const char* data, DWORD dwSigLen, std::shared_ptr<BYTE[]> _pbSignature);
+    bool Verify(const char* data, DWORD dwSigLen, std::shared_ptr<BYTE[]> _pbSignature, DWORD dwBlobLen, std::shared_ptr<BYTE[]> _pbKeyBlob);
+
+    std::pair<DWORD, std::shared_ptr<BYTE[]>> Sign(const char* data);
+    void showHash(HCRYPTHASH hHash);
+
+    std::pair<DWORD, std::shared_ptr<BYTE[]>> GetPublicKey();
 };
+
+void Crypto::showHash(HCRYPTHASH hHash)
+{
+    BYTE rgbHash[GR3411LEN];
+    static DWORD cbHash = GR3411LEN;
+    static CHAR rgbDigits[] = "0123456789abcdef";
+    if (!CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
+    {
+        CryptDestroyHash(hHash);
+        CryptReleaseContext(_hProv, 0);
+        HandleError("CryptGetHashParam failed");
+    }
+
+    printf("GR3411 hash is: ");
+    for (int i = 0; i < cbHash; i++)
+    {
+        printf("%c%c", rgbDigits[rgbHash[i] >> 4],
+               rgbDigits[rgbHash[i] & 0xf]);
+    }
+    printf("\n");
+}
 
 Crypto::Crypto(/* args */)
 {
-
-    // create container if container doesn't exist
     this->createContainer(CONTAINER);
-    //-------------------------------------------------------------
-    // Объявление и инициализация переменных.
+}
 
-    // Получение дескриптора контекста криптографического провайдера.
-    // if (CryptAcquireContext(
-    //         &_hProv,
-    //         CONTAINER,
-    //         NULL,
-    //         PROV_GOST_2012_256,
-    //         0))
-    // {
-    //     printf("CSP context acquired.\n");
-    // }
-    // else
-    // {
-    //     HandleError("Error during CryptAcquireContext.");
-    // }
+Crypto::Crypto(std::string const& name)
+{
+    this->createContainer("\\\\.\\HDIMAGE\\" + name);
 }
 
 // create container by name
@@ -120,7 +141,7 @@ void Crypto::createContainer(std::string const& name)
 
 	//  Для создания нового ключевого контейнера строка второго параметра
 	//  заменяется на NULL здесь и при следующем вызове функции:
-	if (CryptAcquireContextA(
+	if (CryptAcquireContext(
 			&_hProv,		// Дескриптор CSP
 			UserName,			// Имя контейнера
 			NULL,				// Использование провайдера по умолчанию
@@ -132,7 +153,7 @@ void Crypto::createContainer(std::string const& name)
 	else
 	{
 		// Создание нового контейнера.
-		if (!CryptAcquireContextA(
+		if (!CryptAcquireContext(
 				&_hProv,
 				UserName,
 				NULL,
@@ -142,22 +163,16 @@ void Crypto::createContainer(std::string const& name)
 			HandleError("Could not create a new key container.\n");
 		}
 
-		// install pin
-		if (!CryptSetProvParam(_hProv, PP_KEYEXCHANGE_PIN, (LPBYTE)_pin, 0 ))
-		{
-		    printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
-		}
-		printf("A new key container has been created.\n");
 	}
 
-		// install pin
-		if (!CryptSetProvParam(_hProv, PP_KEYEXCHANGE_PIN, (LPBYTE)_pin, 0 ))
-		{
-		    printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
-		}
-		printf("A new key container has been created.\n");
+    // install pin
+    if (!CryptSetProvParam(_hProv, PP_KEYEXCHANGE_PIN, (LPBYTE)_pin, 0))
+    {
+        printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
+    }
+    printf("A new key container has been created.\n");
 
-	// Криптографический контекст с ключевым контейнером доступен. Получение
+    // Криптографический контекст с ключевым контейнером доступен. Получение
 	// имени ключевого контейнера.
 	if (!CryptGetProvParam(
 			_hProv,		// Дескриптор CSP
@@ -286,24 +301,28 @@ HCRYPTHASH Crypto::hash(const char *data)
         HandleError("Error computing BLOB length.");
     }
 
-    if (!_pbHash)
-        _pbHash = new BYTE[cbHash];
-    if (!_pbHash)
-        HandleError("Out of memory. \n");
+    if (!_pbHash) {
+        _pbHash = std::make_unique<BYTE[]>(cbHash);
+    }
 
-    // Копирование параметра HP_OID в pbHash.
-    if (CryptGetHashParam(_hHash,
-                          HP_OID,
-                          _pbHash,
-                          &cbHash,
-                          0))
-    {
-        // printf("Parameters have been written to the pbHash. \n");
+    if (!_pbHash) {
+        HandleError("Out of memory. \n");
+    } else {
+        // Копирование параметра HP_OID в pbHash.
+        if (CryptGetHashParam(_hHash,
+                              HP_OID,
+                              _pbHash.get(),
+                              &cbHash,
+                              0))
+        {
+            // printf("Parameters have been written to the pbHash. \n");
+        }
+        else
+        {
+            HandleError("Error during CryptGetHashParam.");
+        }
     }
-    else
-    {
-        HandleError("Error during CryptGetHashParam.");
-    }
+
 
     //--------------------------------------------------------------------
     // Вычисление криптографического хэша буфера.
@@ -321,32 +340,14 @@ HCRYPTHASH Crypto::hash(const char *data)
         HandleError("Error during CryptHashData.");
     }
 
-    //--------------------------------------------------------------------
-    // Получение параметра объекта функции хэширования.
-    // CHAR rgbDigits[] = "0123456789abcdef";
-    // BYTE rgbHash[GR3411LEN];
-    // cbHash = GR3411LEN;
-    // if (!CryptGetHashParam(_hHash, HP_HASHVAL, rgbHash, &cbHash, 0))
-    // {
-    //     CryptDestroyHash(_hHash);
-    //     CryptReleaseContext(_hProv, 0);
-    //     HandleError("CryptGetHashParam failed");
-    // }
-
-    // printf("GR3411 hash of file is: ");
-    // for(DWORD i = 0; i < cbHash; i++)
-    // {
-	// printf("%c%c", rgbDigits[rgbHash[i] >> 4],
-	//     rgbDigits[rgbHash[i] & 0xf]);
-    // }
-    // printf("\n");
     return _hHash;
 
 }
 
-DWORD Crypto::Sign(const char* data)
+std::pair<DWORD, std::shared_ptr<BYTE[]>> Crypto::Sign(const char* data)
 {
     _hHash = this->hash((char*)data);
+    // this->showHash(_hHash);
     // Определение размера подписи и распределение памяти.
     DWORD dwSigLen = 0;
     if (CryptSignHash(
@@ -365,40 +366,44 @@ DWORD Crypto::Sign(const char* data)
     }
     //--------------------------------------------------------------------
     // Распределение памяти под буфер подписи.
-    if (!_pbSignature)
-        _pbSignature = new BYTE[dwSigLen]; ;
-    if (!_pbSignature)
-        HandleError("Out of memory.");
-
-    // Подпись объекта функции хэширования.
-    if (CryptSignHash(
-            _hHash,
-            AT_SIGNATURE,
-            NULL,
-            0,
-            _pbSignature,
-            &dwSigLen))
-    {
-        // printf("pbSignature is the hash signature.\n");
+    if (!_pbSignature) {
+        _pbSignature = std::shared_ptr<BYTE[]>(new BYTE[dwSigLen]);
     }
-    else
-    {
-        HandleError("Error during CryptSignHash.");
+    // if (!_pbSignature)
+        // _pbSignature = new BYTE[dwSigLen]; ;
+    if (!_pbSignature) {
+        HandleError("Out of memory.");
+    } else {
+        // Подпись объекта функции хэширования.
+        if (CryptSignHash(
+                _hHash,
+                AT_SIGNATURE,
+                NULL,
+                0,
+                _pbSignature.get(),
+                &dwSigLen))
+        {
+            // printf("pbSignature is the hash signature.\n");
+        }
+        else
+        {
+            HandleError("Error during CryptSignHash.");
+        }
     }
 
     // Уничтожение объекта функции хэширования.
-    if (_hHash)
+    if (_hHash) {
         CryptDestroyHash(_hHash);
+    }
 
     // printf("The hash object has been destroyed.\n");
     // printf("The signing phase of this program is completed.\n\n");
 
-    return dwSigLen;
+    return {dwSigLen, _pbSignature};
 }
 
-bool Crypto::Verify(const char* data, DWORD dwSigLen)
+std::pair<DWORD,std::shared_ptr<BYTE[]>> Crypto::GetPublicKey()
 {
-
     DWORD dwBlobLen = 0;
 
     //--------------------------------------------------------------------
@@ -442,9 +447,11 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
     // Распределение памяти под pbKeyBlob.
 
     // _pbKeyBlob = (BYTE *)malloc(dwBlobLen);
-    if (!_pbKeyBlob)
-        _pbKeyBlob = new BYTE[dwBlobLen];
-    if (!_pbKeyBlob)
+    // if (!_pbKeyBlob)
+    //     _pbKeyBlob = new BYTE[dwBlobLen];
+    auto pbKeyBlob = std::shared_ptr<BYTE[]>(new BYTE[dwBlobLen]);
+
+    if (!pbKeyBlob)
         HandleError("Out of memory. \n");
 
     // Сам экспорт в ключевой BLOB.
@@ -453,7 +460,7 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
             0,
             PUBLICKEYBLOB,
             0,
-            _pbKeyBlob,
+            pbKeyBlob.get(),
             &dwBlobLen))
     {
         // printf("Contents have been written to the BLOB. \n");
@@ -462,6 +469,13 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
     {
         HandleError("Error during CryptExportKey.");
     }
+    return {dwBlobLen, pbKeyBlob};
+
+}
+
+bool Crypto::Verify(const char* data, DWORD dwSigLen, std::shared_ptr<BYTE[]> _pbSignature, DWORD dwBlobLen, std::shared_ptr<BYTE[]> _pbKeyBlob)
+{
+
 
     //--------------------------------------------------------------------
     // Во второй части программы проверяется подпись.
@@ -494,7 +508,7 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
 
     if (CryptImportKey(
             _hProv,
-            _pbKeyBlob,
+            _pbKeyBlob.get(),
             dwBlobLen,
             0,
             0,
@@ -512,9 +526,11 @@ bool Crypto::Verify(const char* data, DWORD dwSigLen)
     // Вычисление криптографического хэша буфера.
     _hHash = this->hash((char*)pbBuffer);
 
+    // this->showHash(_hHash);
+
     if (CryptVerifySignature(
             _hHash,
-            _pbSignature,
+            _pbSignature.get(),
             dwSigLen,
             _hPubKey,
             NULL,
@@ -538,15 +554,15 @@ Crypto::~Crypto()
 
 void Crypto::CleanUp(void)
 {
-    if (_pbSignature)
+    // if (_pbSignature)
         // free(_pbSignature);
-        delete[] _pbSignature;
-    if (_pbHash)
+        // delete[] _pbSignature;
+    // if (_pbHash)
         // free(_pbHash);
-        delete[] _pbHash;
-    if (_pbKeyBlob)
+        // delete[] _pbHash;
+    // if (_pbKeyBlob)
         // free(_pbKeyBlob);
-        delete[] _pbKeyBlob;
+        // delete[] _pbKeyBlob;
 
     // Уничтожение объекта функции хэширования.
     if (_hHash)
@@ -584,40 +600,74 @@ void Crypto::HandleError(const char *s)
     exit(err);
 }
 
+    struct Transaction {
+        std::string _some_message;
+        std::pair<DWORD, std::shared_ptr<BYTE[]>> _signature;
+        std::pair<DWORD, std::shared_ptr<BYTE[]>> _pbKey;
+    };
+
 int main(int argc, char **argv)
 {
     try{
 
-    Crypto sign;
+    Crypto sign("Sign");
+    Crypto verify("Verify");
     auto dwSigLen = 0;
-    std::string my_new_data_for_sign = "My some data for signing";
+    std::string my_new_data_for_sign = "My some data for signing. This is the text.";
 
 
-    auto count = 100000;
-    auto start = system_clock::now();
-    for (size_t i = 0; i < count; i++)
-    {
-        // my_new_data_for_sign += std::to_string(i);
-        dwSigLen = sign.Sign(my_new_data_for_sign.c_str());
-        if( !sign.Verify(my_new_data_for_sign.c_str(), dwSigLen) )
-            throw "Exception bad verify";
-    }
-    auto end = system_clock::now();
-    std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count()/1000.0 << std::endl;
+    // auto count = 10000;
+    // prepare messages
+    // std::vector<std::pair<DWORD, std::shared_ptr<BYTE[]> > > signed_messages(count);
+    // for (size_t i = 0; i < count; i++)
+    // {
+    //     signed_messages.push_back(sign.Sign(my_new_data_for_sign.c_str()));
+    // }
+
+    // auto start = system_clock::now();
+    // for (size_t i = 0; i < count; i++)
+    // {
+    //     // my_new_data_for_sign += std::to_string(i);
+    //     // auto [dwSigLen, pbSignature] = sign.Sign(my_new_data_for_sign.c_str());
+    //     auto [dwSigLen, pbSignature] = signed_messages[i];
+    //     auto [dbWord, pbKeyBlob] = sign.GetPublicKey();
+    //     if( !verify.Verify(my_new_data_for_sign.c_str(), dwSigLen, pbSignature, dbWord, pbKeyBlob) ) {
+    //         throw "Exception bad verify";
+    //     }
+    // }
+    // auto end = system_clock::now();
+    // std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count()/1000.0 << std::endl;
 
 
     // new test 
     // prepare transaction
-    struct Transaction {
-        std::string _some_message;
-    };
-    std::vector<Transaction> transactions;
+
+    auto count = 100000;
+    std::vector<Transaction> transactions(count);
     for (size_t i = 0; i < count; i++)
     {
-        
+        Transaction tr;
+        tr._some_message = "My some data for signing. This is the text.";
+        tr._signature = sign.Sign(tr._some_message.c_str());
+        tr._pbKey = sign.GetPublicKey();
+        transactions[i] = std::move(tr);
     }
     
     // verify transactions
+
+    std::cout << "Starting verify transaction..." << std::endl;
+    auto start = system_clock::now();
+    for (size_t i = 0; i < count; i++)
+    {
+        auto tr = transactions[i];
+        // std::cout << "Transaction " << tr._some_message << std::endl;
+        if( !verify.Verify(tr._some_message.c_str(), tr._signature.first, tr._signature.second, tr._pbKey.first, tr._pbKey.second) ) {
+            throw "Exception bad verify";
+        }
+    }
+    auto end = system_clock::now();
+    std::cout << "Crypto time is: " << duration_cast<milliseconds>(end - start).count()/1000.0 << std::endl;
+
 
     }
     catch (char const* exception){
