@@ -23,7 +23,6 @@ int main(int argc, char **argv)
 {
     try
     {
-
         // prepare test
         // Crypto sign("Sign");
         // Crypto verify("Verify");

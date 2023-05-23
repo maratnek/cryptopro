@@ -38,15 +38,16 @@ int main(void)
     auto start = system_clock::now();
     lamda_multi_thread([](size_t i, size_t max_count)
                        {
-                           Crypto sign;
+                           Crypto sign("SignVerify");
                            std::string some_data = "My some data for signing";
                            auto dwSigLen = 0;
                            for (; i < max_count; i++)
                            {
-                               dwSigLen = sign.Sign(some_data.c_str());
+                               auto signature = sign.sign(some_data.c_str());
                                auto pub_key = sign.getPublicKey();
-                               if (!sign.Verify(some_data.c_str(), dwSigLen, pub_key ))
+                               if (!sign.verify(some_data.c_str(), signature.second, signature.first, pub_key )) {
                                    throw "Exception bad verify";
+                               }
                            }
                        },
                        count);

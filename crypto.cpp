@@ -290,8 +290,6 @@ T_SIGN_BYTE Crypto::sign(const char *data)
     {
         _pbSignature = std::shared_ptr<BYTE[]>(new BYTE[dwSigLen]);
     }
-    // if (!_pbSignature)
-    // _pbSignature = new BYTE[dwSigLen]; ;
     if (!_pbSignature)
     {
         handleError("Out of memory.");
@@ -459,6 +457,86 @@ bool Crypto::verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBL
     }
 }
 
+void Crypto::loadCertificate(const char *filename) {
+
+}
+
+
+void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char *szCertFile, char *szKeyFile)
+{
+    static FILE *certf = NULL;                // Файл, в котором хранится сертификат
+    // Открытие файла, в котором содержится открытый ключ получателя.
+    // if(fopen_s(&certf, szCertFile, "r+b" ))
+    if ((certf = fopen(szCertFile, "rb")))
+    {
+        DWORD cbCert = 2000;
+        BYTE pbCert[2000];
+        PCCERT_CONTEXT pCertContext = NULL;
+        HCRYPTKEY hPubKey;
+        printf("The file '%s' was opened\n", szCertFile);
+
+        cbCert = (DWORD)fread(pbCert, 1, cbCert, certf);
+        if (!cbCert)
+            handleError("Failed to read certificate\n");
+        printf("Certificate was read from the '%s'\n", szCertFile);
+
+        pCertContext = CertCreateCertificateContext(
+            X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, pbCert, cbCert);
+        if (!pCertContext)
+        {
+            handleError("CertCreateCertificateContext");
+        }
+
+        // Импортируем открытый ключ
+        if (CryptImportPublicKeyInfoEx(
+                _hProv,
+                X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                &(pCertContext->pCertInfo->SubjectPublicKeyInfo),
+                0,
+                0,
+                NULL,
+                &hPubKey))
+        {
+            printf("Public key imported from cert file\n");
+        }
+        else
+        {
+            CertFreeCertificateContext(pCertContext);
+            handleError("CryptImportPublicKeyInfoEx");
+        }
+        CertFreeCertificateContext(pCertContext);
+
+        // Экспортируем его в BLOB
+        if (CryptExportKey(
+                hPubKey,
+                0,
+                PUBLICKEYBLOB,
+                0,
+                pbBlob,
+                pcbBlob))
+        {
+            printf("Public key exported to blob\n");
+        }
+        else
+        {
+            handleError("CryptExportKey");
+        }
+    }
+//     else
+//     {
+//         // Открытие файла, в котором содержится открытый ключ получателя.
+//         // if(!fopen_s(&publicf, szKeyFile, "r+b" ))
+//         // if (!(publicf = fopen(szKeyFile, "rb")))
+//         //     handleError("Problem opening the public key blob file\n");
+//         // printf("The file '%s' was opened\n", szKeyFile);
+
+//         // *pcbBlob = (DWORD)fread(pbBlob, 1, *pcbBlob, publicf);
+//         // if (!*pcbBlob)
+//         //     handleError("Failed to read key blob file\n");
+//         // printf("Key blob was read from the '%s'\n", szKeyFile);
+//     }
+}
+
 Crypto::~Crypto()
 {
     try
@@ -473,16 +551,6 @@ Crypto::~Crypto()
 
 void Crypto::cleanUp(void)
 {
-    // if (_pbSignature)
-    // free(_pbSignature);
-    // delete[] _pbSignature;
-    // if (_pbHash)
-    // free(_pbHash);
-    // delete[] _pbHash;
-    // if (_pbKeyBlob)
-    // free(_pbKeyBlob);
-    // delete[] _pbKeyBlob;
-
     // Уничтожение объекта функции хэширования.
     if (_hHash)
         CryptDestroyHash(_hHash);
@@ -516,5 +584,5 @@ void Crypto::handleError(const char *s)
     cleanUp();
     if (!err)
         err = 1;
-    exit(err);
+    throw (err);
 }

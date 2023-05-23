@@ -1,4 +1,6 @@
 #pragma once
+#ifndef CRYPTO_HPP
+#define CRYPTO_HPP
 
 #include <stdio.h>
 #ifdef _WIN32
@@ -59,9 +61,15 @@ namespace crypto
         void handleError(const char *s);
         HCRYPTHASH hash(const char *data);
         T_PAIR_BYTE hashByte(const char *data);
+        void loadCertificate(const char *certificate);
+
+        void LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char *szCertFile, char *szKeyFile);
+
         bool verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBLIC_KEY pubkey);
         T_SIGN_BYTE sign(const char *data);
         void showHash() const;
     };
 
 } // end namespace
+
+#endif // CRYPTO_HPP
