@@ -63,7 +63,7 @@ namespace crypto
         T_PAIR_BYTE hashByte(const char *data);
         void loadCertificate(const char *certificate);
 
-        void LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char *szCertFile, char *szKeyFile);
+        void LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile, char *szKeyFile);
 
         bool verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBLIC_KEY pubkey);
         T_SIGN_BYTE sign(const char *data);

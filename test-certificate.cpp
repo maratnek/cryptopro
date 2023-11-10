@@ -43,8 +43,8 @@ int main(int argc, char **argv)
                                     tr._some_message = "My some data for signing. This is the text.";
                                     try
                                     {
-                                    tr._signature = sign.sign(tr._some_message.c_str());
-                                    tr._pbKey = sign.getPublicKey();
+                                        tr._signature = sign.sign(tr._some_message.c_str());
+                                        tr._pbKey = sign.getPublicKey();
                                     }
                                     catch(int e){
                                         std::cerr << "Sign problem: " << e << '\n';

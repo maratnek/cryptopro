@@ -28,7 +28,8 @@ int main(int argc, char **argv)
         // Crypto sign("Sign");
         // Crypto verify("Verify");
 
-        auto count = 1000'000;
+        // auto count = 1000'000;
+        auto count = 10;
         std::vector<Transaction> transactions(count);
 
         {

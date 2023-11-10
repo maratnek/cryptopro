@@ -82,6 +82,7 @@ void Crypto::createContainer(std::string const &name)
         {
             handleError("Could not create a new key container.\n");
         }
+        printf("A new key container has been created.\n");
     }
 
     // install pin
@@ -89,7 +90,6 @@ void Crypto::createContainer(std::string const &name)
     {
         printf("CryptSetProvParam(PP_KEYEXCHANGE_PIN,Encryptor) failed: %x\n", GetLastError());
     }
-    printf("A new key container has been created.\n");
 
     // Криптографический контекст с ключевым контейнером доступен. Получение
     // имени ключевого контейнера.
@@ -458,11 +458,10 @@ bool Crypto::verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBL
 }
 
 void Crypto::loadCertificate(const char *filename) {
-
 }
 
 
-void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char *szCertFile, char *szKeyFile)
+void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile, char *szKeyFile)
 {
     static FILE *certf = NULL;                // Файл, в котором хранится сертификат
     // Открытие файла, в котором содержится открытый ключ получателя.

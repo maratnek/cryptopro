@@ -140,13 +140,15 @@ set(CXX_STANDARD 17)
 # )
 # target_link_libraries(test-crypto crypto ssp capi10 rdrsup pthread)
 
-# #  Test Crypto lib Project single thread
-# add_executable(test-crypto-single-thread 
-#     test-crypto-single-thread.cpp 
+
+
+#  Test Certificate lib Project single thread
+# add_executable(test-certificate 
+#     test-certificate.cpp 
 #     crypto.cpp
 # )
 
-# target_compile_definitions(test-crypto-single-thread PUBLIC 
+# target_compile_definitions(test-certificate PUBLIC 
 #     SIZEOF_VOID_P=8 
 #     UNIX
 #     HAVE_LIMITS_H
@@ -154,17 +156,44 @@ set(CXX_STANDARD 17)
 #     HAVE_SYS_INTTYPES_H
 #     COMPACT
 # )
-# target_link_directories(test-crypto-single-thread PUBLIC /opt/cprocsp/lib/amd64)
-# target_include_directories(test-crypto-single-thread PUBLIC 
+
+# target_link_directories(test-certificate PUBLIC /opt/cprocsp/lib/amd64)
+# target_include_directories(test-certificate PUBLIC 
 #     /opt/cprocsp 
 #     /opt/cprocsp/include/ 
 #     /opt/cprocsp/include/cpcsp
+#     /opt/cprocsp/include/pki 
 # )
-# target_link_libraries(test-crypto-single-thread crypto ssp capi10 rdrsup pthread)
+# target_link_libraries(test-certificate crypto ssp capi10 capi20 rdrsup pthread)
 
-#  Test Certificate lib Project single thread
+#  Test Create self Certificate 
+# add_executable(test-self-certificate 
+#     create-self-cert.cpp 
+#     # crypto.cpp
+# )
+
+# target_compile_definitions(test-self-certificate PUBLIC 
+#     SIZEOF_VOID_P=8 
+#     UNIX
+#     HAVE_LIMITS_H
+#     HAVE_STD_INT_H
+#     HAVE_SYS_INTTYPES_H
+#     COMPACT
+# )
+
+# target_link_directories(test-self-certificate PUBLIC /opt/cprocsp/lib/amd64)
+# target_include_directories(test-self-certificate PUBLIC 
+#     /opt/cprocsp 
+#     /opt/cprocsp/include/ 
+#     /opt/cprocsp/include/cpcsp
+#     /opt/cprocsp/include/pki 
+# )
+# target_link_libraries(test-self-certificate crypto ssp capi10 capi20 rdrsup pthread)
+
+
+#  Test work with Certificate 
 add_executable(test-certificate 
-    test-certificate.cpp 
+    certificate.cpp 
     crypto.cpp
 )
 
@@ -186,6 +215,26 @@ target_include_directories(test-certificate PUBLIC
 )
 target_link_libraries(test-certificate crypto ssp capi10 capi20 rdrsup pthread)
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
+#  Test work with Certificate 
+add_executable(test-crypto-single-thread 
+    test-crypto-single-thread.cpp
+    crypto.cpp
+)
+
+target_compile_definitions(test-crypto-single-thread PUBLIC 
+    SIZEOF_VOID_P=8 
+    UNIX
+    HAVE_LIMITS_H
+    HAVE_STD_INT_H
+    HAVE_SYS_INTTYPES_H
+    COMPACT
+)
+
+target_link_directories(test-crypto-single-thread PUBLIC /opt/cprocsp/lib/amd64)
+target_include_directories(test-crypto-single-thread PUBLIC 
+    /opt/cprocsp 
+    /opt/cprocsp/include/ 
+    /opt/cprocsp/include/cpcsp
+    /opt/cprocsp/include/pki 
+)
+target_link_libraries(test-crypto-single-thread crypto ssp capi10 capi20 rdrsup pthread)
