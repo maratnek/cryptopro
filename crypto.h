@@ -65,6 +65,8 @@ namespace crypto
 
         void LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile, char *szKeyFile);
 
+        bool CheckCertificate(char const *szCertFile);
+
         bool verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBLIC_KEY pubkey);
         T_SIGN_BYTE sign(const char *data);
         void showHash() const;

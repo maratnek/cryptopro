@@ -359,7 +359,7 @@ T_PUBLIC_KEY Crypto::getPublicKey()
             NULL,
             &dwBlobLen))
     {
-        // printf("Size of the BLOB for the public key determined. \n");
+        printf("Size of the BLOB for the public key determined.  Blob len %d\n", dwBlobLen);
     }
     else
     {
@@ -460,6 +460,181 @@ bool Crypto::verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBL
 void Crypto::loadCertificate(const char *filename) {
 }
 
+#define ZeroMemory(Destination,Length) memset((Destination),0,(Length))
+
+void 
+PrintCertInfo(PCCERT_CONTEXT pCertCtx) 
+{
+    TCHAR	szNameString[256];
+    SYSTEMTIME	ExpireDate;
+
+    // Name
+    if (CertGetNameString(
+	pCertCtx,
+	CERT_NAME_SIMPLE_DISPLAY_TYPE,
+	0,
+	NULL,
+	szNameString,
+	128)) {
+	    _tprintf(_TEXT("\tIssued for:\t%s \n"), szNameString);
+    }
+
+
+    // Issuer name
+    if (CertGetNameString(
+	pCertCtx,
+	CERT_NAME_SIMPLE_DISPLAY_TYPE,
+	CERT_NAME_ISSUER_FLAG,
+	NULL,
+	szNameString,
+	128)) {
+	    _tprintf(_TEXT("\tIssued by:\t%s \n"), szNameString);
+    }
+
+
+    // Expiry date
+    FileTimeToSystemTime(&pCertCtx->pCertInfo->NotAfter, &ExpireDate);
+    _tprintf(_TEXT("\tExpires:\t%02d.%02d.%04d %02d:%02d:%02d\n"),
+	ExpireDate.wDay, ExpireDate.wMonth, ExpireDate.wYear,
+	ExpireDate.wHour, ExpireDate.wMinute, ExpireDate.wSecond);
+}
+
+
+BOOL 
+VerifyCertificateChain(PCCERT_CONTEXT pCertCtx) {
+
+    CERT_CHAIN_POLICY_PARA	PolicyPara;
+    CERT_CHAIN_POLICY_STATUS	PolicyStatus;
+
+    CERT_CHAIN_PARA		ChainPara;
+    PCCERT_CHAIN_CONTEXT	pChainContext = NULL;
+    BOOL			bResult = FALSE;
+
+    ZeroMemory(&ChainPara, sizeof(ChainPara));
+    ChainPara.cbSize = sizeof(ChainPara);
+
+    if (!CertGetCertificateChain(
+	NULL,
+	pCertCtx,
+	NULL,
+	NULL,
+	&ChainPara,
+	CERT_CHAIN_CACHE_END_CERT | CERT_CHAIN_REVOCATION_CHECK_CHAIN,
+	NULL,
+	&pChainContext)) {
+	    goto Finish;
+    }
+
+
+    ZeroMemory(&PolicyPara, sizeof(PolicyPara));
+    PolicyPara.cbSize = sizeof(PolicyPara);
+
+    ZeroMemory(&PolicyStatus, sizeof(PolicyStatus));
+    PolicyStatus.cbSize = sizeof(PolicyStatus);
+
+    if (!CertVerifyCertificateChainPolicy(
+	CERT_CHAIN_POLICY_BASE,
+	pChainContext,
+	&PolicyPara,
+	&PolicyStatus)) {
+	    goto Finish;
+    }
+
+
+    if (PolicyStatus.dwError) {
+	SetLastError(PolicyStatus.dwError);
+	goto Finish;
+    }
+
+
+    bResult = TRUE;
+Finish:
+
+    if (pChainContext) {
+	CertFreeCertificateChain(pChainContext);
+    }
+
+    return bResult;
+}
+
+bool Crypto::CheckCertificate(char const *szCertFile)
+{
+    static FILE *certf = NULL;                // Файл, в котором хранится сертификат
+    // Открытие файла, в котором содержится открытый ключ получателя.
+    // if(fopen_s(&certf, szCertFile, "r+b" ))
+    if ((certf = fopen(szCertFile, "rb")))
+    {
+        DWORD cbCert = 4000;
+        BYTE pbCert[4000];
+        PCCERT_CONTEXT pCertContext = NULL;
+        HCRYPTKEY hPubKey;
+        printf("The file '%s' was opened\n", szCertFile);
+
+        cbCert = (DWORD)fread(pbCert, 1, cbCert, certf);
+        if (!cbCert)
+            handleError("Failed to read certificate\n");
+        printf("Certificate was read from the '%s'\n", szCertFile);
+
+        DWORD dwCertEncodType = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
+        pCertContext = CertCreateCertificateContext(
+            dwCertEncodType,
+            // CRYPT_ASN_ENCODING,
+            pbCert, cbCert);
+        if (!pCertContext)
+        {
+            handleError("CertCreateCertificateContext");
+        }
+        PrintCertInfo(pCertContext);
+
+        if (VerifyCertificateChain(pCertContext)) 
+        {
+            return true;
+        }
+
+    //     DWORD dwVerifyFlags = CERT_STORE_SIGNATURE_FLAG | CERT_STORE_TIME_VALIDITY_FLAG | CERT_STORE_REVOCATION_FLAG;
+    //     if (!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_BASE, pCertContext, NULL, dwVerifyFlags  )) {
+    //     }
+
+    //     // Импортируем открытый ключ
+    //     if (CryptImportPublicKeyInfoEx(
+    //             _hProv,
+    //             X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+    //             // CRYPT_ASN_ENCODING,
+    //             &(pCertContext->pCertInfo->SubjectPublicKeyInfo),
+    //             0,
+    //             0,
+    //             NULL,
+    //             &hPubKey))
+    //     {
+    //         printf("Public key imported from cert file\n");
+    //     }
+    //     else
+    //     {
+    //         CertFreeCertificateContext(pCertContext);
+    //         handleError("CryptImportPublicKeyInfoEx");
+    //     }
+    //     CertFreeCertificateContext(pCertContext);
+
+    //     // Экспортируем его в BLOB
+    //     if (CryptExportKey(
+    //             hPubKey,
+    //             0,
+    //             PUBLICKEYBLOB,
+    //             0,
+    //             pbBlob,
+    //             pcbBlob))
+    //     {
+    //         printf("Public key exported to blob\n");
+    //     }
+    //     else
+    //     {
+    //         handleError("CryptExportKey");
+    //     }
+    }
+
+    return false;
+}
+
 
 void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile, char *szKeyFile)
 {
@@ -468,8 +643,8 @@ void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile,
     // if(fopen_s(&certf, szCertFile, "r+b" ))
     if ((certf = fopen(szCertFile, "rb")))
     {
-        DWORD cbCert = 2000;
-        BYTE pbCert[2000];
+        DWORD cbCert = 4000;
+        BYTE pbCert[4000];
         PCCERT_CONTEXT pCertContext = NULL;
         HCRYPTKEY hPubKey;
         printf("The file '%s' was opened\n", szCertFile);
@@ -480,7 +655,9 @@ void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile,
         printf("Certificate was read from the '%s'\n", szCertFile);
 
         pCertContext = CertCreateCertificateContext(
-            X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, pbCert, cbCert);
+            X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+            // CRYPT_ASN_ENCODING,
+            pbCert, cbCert);
         if (!pCertContext)
         {
             handleError("CertCreateCertificateContext");
@@ -490,6 +667,7 @@ void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile,
         if (CryptImportPublicKeyInfoEx(
                 _hProv,
                 X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                // CRYPT_ASN_ENCODING,
                 &(pCertContext->pCertInfo->SubjectPublicKeyInfo),
                 0,
                 0,

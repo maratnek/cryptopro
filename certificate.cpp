@@ -20,25 +20,63 @@ int main() {
         T_PUBLIC_KEY _pbKey;
         std::string _some_message = "Some test to sign";
 
-        BYTE pbKeyBlob[MAX_PUBLICKEYBLOB_SIZE];   // Указатель на ключевой BLOB
-        DWORD dwBlobLen = MAX_PUBLICKEYBLOB_SIZE; // Длина ключевого BLOBа
         // sender side
         {
-            Crypto sign("Sign");
+            Crypto sign("clientcont");
             _signature = sign.sign(_some_message.c_str());
             _pbKey = sign.getPublicKey();
+
+            printf("Show public key\n");
+            static CHAR rgbDigits[] = "0123456789ABCDEF";
+            for (DWORD i = 0; i < _pbKey.second; i++)
+            {
+                printf("%c%c", rgbDigits[_pbKey.first[i] >> 4],
+                       rgbDigits[_pbKey.first[i] & 0xf]);
+            }
+            printf("\n");
         }
-        std::string cert_file_name = "cert-for-del.cer";
+        std::string cert_file_name = "./cer-test-clientcont.cer";
         {
             Crypto verify("Verify");
-            verify.LoadPublicKey(pbKeyBlob, &dwBlobLen, cert_file_name.c_str(), nullptr);
-            std::cout << "cert file loaded" << std::endl;
-            T_PUBLIC_KEY pbKey(pbKeyBlob, dwBlobLen);
-            if (verify.verify(_some_message.c_str(), _signature.second, _signature.first, _pbKey)){
-                std::cout << "verified message" << std::endl;
+            DWORD dwBlobLen = MAX_PUBLICKEYBLOB_SIZE; // Длина ключевого BLOBа
+            auto pbKeyBlob = T_SHARP_BYTE(new BYTE[dwBlobLen]);
+
+            printf("Check certificate!\n");
+            // std::string cr_file_name = "./rootca.cer";
+            // std::string cr_file_name = "./cer-test-mycont.cer";
+            if (verify.CheckCertificate(cert_file_name.c_str())) {
+                printf("Certificate verified!\n");
+
+                verify.LoadPublicKey(pbKeyBlob.get(), &dwBlobLen, cert_file_name.c_str(), nullptr);
+                std::cout << "cert file loaded" << std::endl;
+                T_PUBLIC_KEY pbKey(pbKeyBlob, dwBlobLen);
+                printf("Cert blob len %d\n", pbKey.second);
+
+                printf("Show public key from certificate\n");
+                static CHAR rgbDigits[] = "0123456789ABCDEF";
+                for (DWORD i = 0; i < pbKey.second; i++)
+                {
+                    printf("%c%c", rgbDigits[pbKey.first[i] >> 4],
+                           rgbDigits[pbKey.first[i] & 0xf]);
+                }
+                printf("\n");
+
+                if (verify.verify(_some_message.c_str(), _signature.second, _signature.first, pbKey))
+                {
+                    // if (verify.verify(_some_message.c_str(), _signature.second, _signature.first, _pbKey)){
+                    std::cout << "verified message" << std::endl;
+                }
+                else
+                {
+                    std::cout << "unverified message" << std::endl;
+                }
+
             } else {
-                std::cout << "unverified message" << std::endl;
+                printf("Certificate Unverified!\n");
             }
+
+
+
         }
     }
     catch(const std::exception& e)
