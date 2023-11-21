@@ -1,10 +1,15 @@
-#include "crypto.h"
+#include "cryptopro.h"
+
+#include <string>
+#include <fstream>
+#include <sstream>
 
 using namespace crypto;
 
 Crypto::Crypto(std::string const &name)
 {
     this->createContainer("\\\\.\\HDIMAGE\\" + name);
+    this->PrepareEngingeChain();
 }
 
 void Crypto::showHash() const
@@ -499,32 +504,74 @@ PrintCertInfo(PCCERT_CONTEXT pCertCtx)
 	ExpireDate.wHour, ExpireDate.wMinute, ExpireDate.wSecond);
 }
 
+static int DebugErrorFL(const char *s) {
+    printf("ERROR: %s\n", s);
+    return 1;
+}
 
-BOOL 
-VerifyCertificateChain(PCCERT_CONTEXT pCertCtx) {
+void Crypto::PrepareEngingeChain() 
+{
+    HCERTCHAINENGINE hChainEngine = NULL;
+    CERT_CHAIN_ENGINE_CONFIG ChainConfig;
+    HCERTSTORE hRoot = 0;
+    HCERTSTORE hCa = 0;
 
-    CERT_CHAIN_POLICY_PARA	PolicyPara;
-    CERT_CHAIN_POLICY_STATUS	PolicyStatus;
+    hCa = CertOpenStore(CERT_STORE_PROV_SYSTEM, 0, 0, CERT_STORE_OPEN_EXISTING_FLAG | CERT_STORE_READONLY_FLAG | CERT_SYSTEM_STORE_CURRENT_USER, L"CA");
+    if (!hCa) {
+        DebugErrorFL("No CA.");
+    }
+    hRoot = CertOpenStore(CERT_STORE_PROV_SYSTEM, 0, 0, CERT_STORE_OPEN_EXISTING_FLAG | CERT_STORE_READONLY_FLAG | CERT_SYSTEM_STORE_CURRENT_USER, L"Root");
+    if (!hRoot) {
+        DebugErrorFL("No Root.");
+    }
+    memset(&ChainConfig, 0, sizeof(ChainConfig));
+    ChainConfig.cbSize = sizeof(CERT_CHAIN_ENGINE_CONFIG);
+    ChainConfig.hRestrictedTrust= NULL;
+    ChainConfig.hRestrictedRoot = hRoot;
+    ChainConfig.hRestrictedOther = hCa;
+    ChainConfig.cAdditionalStore = 0;
+    ChainConfig.rghAdditionalStore = NULL;
+    ChainConfig.dwFlags = CERT_CHAIN_CACHE_ONLY_URL_RETRIEVAL;
+    ChainConfig.dwUrlRetrievalTimeout = 1000;
+    ChainConfig.MaximumCachedCertificates = 0;
+    ChainConfig.CycleDetectionModulus = 0;
 
-    CERT_CHAIN_PARA		ChainPara;
-    PCCERT_CHAIN_CONTEXT	pChainContext = NULL;
-    BOOL			bResult = FALSE;
+    if (CertCreateCertificateChainEngine(&ChainConfig, &hChainEngine)) {
+        printf("A chain engine has been created.\n");
+    } else {
+        DebugErrorFL("The engine creation function failed.");
+    }
+
+}
+
+BOOL Crypto::VerifyCertificateChain(PCCERT_CONTEXT pCertCtx, HCERTCHAINENGINE hChainEngine)
+{
+
+    CERT_CHAIN_POLICY_PARA PolicyPara;
+    CERT_CHAIN_POLICY_STATUS PolicyStatus;
+
+    CERT_CHAIN_PARA ChainPara;
+    PCCERT_CHAIN_CONTEXT pChainContext = NULL;
+    BOOL bResult = FALSE;
 
     ZeroMemory(&ChainPara, sizeof(ChainPara));
     ChainPara.cbSize = sizeof(ChainPara);
 
     if (!CertGetCertificateChain(
-	NULL,
-	pCertCtx,
-	NULL,
-	NULL,
-	&ChainPara,
-	CERT_CHAIN_CACHE_END_CERT | CERT_CHAIN_REVOCATION_CHECK_CHAIN,
-	NULL,
-	&pChainContext)) {
-	    goto Finish;
+            NULL, //hChainEngine,
+            pCertCtx,
+            NULL,
+            NULL,
+            &ChainPara,
+            // CERT_CHAIN_REVOCATION_CHECK_CHAIN_EXCLUDE_ROOT | CERT_CHAIN_REVOCATION_CHECK_CACHE_ONLY,
+            CERT_CHAIN_REVOCATION_CHECK_CACHE_ONLY | CERT_CHAIN_CACHE_ONLY_URL_RETRIEVAL,
+            // CERT_CHAIN_REVOCATION_CHECK_CACHE_ONLY | CERT_CHAIN_CACHE_ONLY_URL_RETRIEVAL,
+            // CERT_CHAIN_CACHE_END_CERT | CERT_CHAIN_REVOCATION_CHECK_CHAIN | CERT_CHAIN_CACHE_ONLY_URL_RETRIEVAL,
+            NULL,
+            &pChainContext))
+    {
+        goto Finish;
     }
-
 
     ZeroMemory(&PolicyPara, sizeof(PolicyPara));
     PolicyPara.cbSize = sizeof(PolicyPara);
@@ -533,114 +580,137 @@ VerifyCertificateChain(PCCERT_CONTEXT pCertCtx) {
     PolicyStatus.cbSize = sizeof(PolicyStatus);
 
     if (!CertVerifyCertificateChainPolicy(
-	CERT_CHAIN_POLICY_BASE,
-	pChainContext,
-	&PolicyPara,
-	&PolicyStatus)) {
-	    goto Finish;
+            CERT_CHAIN_POLICY_BASE,
+            pChainContext,
+            &PolicyPara,
+            &PolicyStatus))
+    {
+        goto Finish;
     }
 
-
-    if (PolicyStatus.dwError) {
-	SetLastError(PolicyStatus.dwError);
-	goto Finish;
+    if (PolicyStatus.dwError)
+    {
+        SetLastError(PolicyStatus.dwError);
+        goto Finish;
     }
-
 
     bResult = TRUE;
 Finish:
 
-    if (pChainContext) {
-	CertFreeCertificateChain(pChainContext);
+    if (pChainContext)
+    {
+        CertFreeCertificateChain(pChainContext);
     }
 
     return bResult;
 }
 
-bool Crypto::CheckCertificate(char const *szCertFile)
+bool Crypto::CheckCertificate(std::string const& certStr)
 {
-    static FILE *certf = NULL;                // Файл, в котором хранится сертификат
-    // Открытие файла, в котором содержится открытый ключ получателя.
-    // if(fopen_s(&certf, szCertFile, "r+b" ))
-    if ((certf = fopen(szCertFile, "rb")))
+    PCCERT_CONTEXT pCertContext = NULL;
+    DWORD dwCertEncodType = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
+
+    pCertContext = CertCreateCertificateContext(
+        dwCertEncodType,
+        reinterpret_cast<const BYTE *>(certStr.c_str()), certStr.size());
+    if (!pCertContext)
     {
-        DWORD cbCert = 4000;
-        BYTE pbCert[4000];
-        PCCERT_CONTEXT pCertContext = NULL;
-        HCRYPTKEY hPubKey;
-        printf("The file '%s' was opened\n", szCertFile);
+        handleError("CertCreateCertificateContext");
+    }
+#ifndef NDEBUG
+        // PrintCertInfo(pCertContext);
+#endif //NDEBUG
 
-        cbCert = (DWORD)fread(pbCert, 1, cbCert, certf);
-        if (!cbCert)
-            handleError("Failed to read certificate\n");
-        printf("Certificate was read from the '%s'\n", szCertFile);
-
-        DWORD dwCertEncodType = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
-        pCertContext = CertCreateCertificateContext(
-            dwCertEncodType,
-            // CRYPT_ASN_ENCODING,
-            pbCert, cbCert);
-        if (!pCertContext)
-        {
-            handleError("CertCreateCertificateContext");
-        }
-        PrintCertInfo(pCertContext);
-
-        if (VerifyCertificateChain(pCertContext)) 
-        {
-            return true;
-        }
-
-    //     DWORD dwVerifyFlags = CERT_STORE_SIGNATURE_FLAG | CERT_STORE_TIME_VALIDITY_FLAG | CERT_STORE_REVOCATION_FLAG;
-    //     if (!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_BASE, pCertContext, NULL, dwVerifyFlags  )) {
-    //     }
-
-    //     // Импортируем открытый ключ
-    //     if (CryptImportPublicKeyInfoEx(
-    //             _hProv,
-    //             X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
-    //             // CRYPT_ASN_ENCODING,
-    //             &(pCertContext->pCertInfo->SubjectPublicKeyInfo),
-    //             0,
-    //             0,
-    //             NULL,
-    //             &hPubKey))
-    //     {
-    //         printf("Public key imported from cert file\n");
-    //     }
-    //     else
-    //     {
-    //         CertFreeCertificateContext(pCertContext);
-    //         handleError("CryptImportPublicKeyInfoEx");
-    //     }
-    //     CertFreeCertificateContext(pCertContext);
-
-    //     // Экспортируем его в BLOB
-    //     if (CryptExportKey(
-    //             hPubKey,
-    //             0,
-    //             PUBLICKEYBLOB,
-    //             0,
-    //             pbBlob,
-    //             pcbBlob))
-    //     {
-    //         printf("Public key exported to blob\n");
-    //     }
-    //     else
-    //     {
-    //         handleError("CryptExportKey");
-    //     }
+    if (VerifyCertificateChain(pCertContext, hChainEngine))
+    {
+        return true;
     }
 
     return false;
 }
 
+bool Crypto::CheckCertificate(char const *szCertFile)
+{
+    printf("CHECKING Certificate");
+    std::ifstream file(szCertFile);
 
-void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile, char *szKeyFile)
+        // Check if the file is open
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << szCertFile << std::endl;
+        return false; // Return an error code
+    }
+
+    // Read the file content into a std::string
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string fileContent = buffer.str();
+
+    // Close the file
+    file.close();
+
+    return this->CheckCertificate(fileContent);
+}
+
+bool Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, std::string const &certStr)
+{
+    PCCERT_CONTEXT pCertContext = NULL;
+    DWORD dwCertEncodType = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
+
+    pCertContext = CertCreateCertificateContext(
+        dwCertEncodType,
+        reinterpret_cast<const BYTE *>(certStr.c_str()), certStr.size());
+    if (!pCertContext)
+    {
+        handleError("CertCreateCertificateContext");
+    }
+
+    if (!VerifyCertificateChain(pCertContext, NULL))
+    {
+        return false;
+    }
+
+    HCRYPTKEY hPubKey;
+    // Импортируем открытый ключ
+    if (CryptImportPublicKeyInfoEx(
+            _hProv,
+            dwCertEncodType,
+            &(pCertContext->pCertInfo->SubjectPublicKeyInfo),
+            0,
+            0,
+            NULL,
+            &hPubKey))
+    {
+        printf("Public key imported from cert file\n");
+    }
+    else
+    {
+        CertFreeCertificateContext(pCertContext);
+        handleError("CryptImportPublicKeyInfoEx");
+    }
+    CertFreeCertificateContext(pCertContext);
+
+    // Экспортируем его в BLOB
+    if (CryptExportKey(
+            hPubKey,
+            0,
+            PUBLICKEYBLOB,
+            0,
+            pbBlob,
+            pcbBlob))
+    {
+        printf("Public key exported to blob\n");
+    }
+    else
+    {
+        handleError("CryptExportKey");
+    }
+    return true;
+}
+
+void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile)
 {
     static FILE *certf = NULL;                // Файл, в котором хранится сертификат
     // Открытие файла, в котором содержится открытый ключ получателя.
-    // if(fopen_s(&certf, szCertFile, "r+b" ))
     if ((certf = fopen(szCertFile, "rb")))
     {
         DWORD cbCert = 4000;
@@ -699,19 +769,6 @@ void Crypto::LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile,
             handleError("CryptExportKey");
         }
     }
-//     else
-//     {
-//         // Открытие файла, в котором содержится открытый ключ получателя.
-//         // if(!fopen_s(&publicf, szKeyFile, "r+b" ))
-//         // if (!(publicf = fopen(szKeyFile, "rb")))
-//         //     handleError("Problem opening the public key blob file\n");
-//         // printf("The file '%s' was opened\n", szKeyFile);
-
-//         // *pcbBlob = (DWORD)fread(pbBlob, 1, *pcbBlob, publicf);
-//         // if (!*pcbBlob)
-//         //     handleError("Failed to read key blob file\n");
-//         // printf("Key blob was read from the '%s'\n", szKeyFile);
-//     }
 }
 
 Crypto::~Crypto()
@@ -741,6 +798,14 @@ void Crypto::cleanUp(void)
     // Освобождение дескриптора провайдера.
     if (_hProv)
         CryptReleaseContext(_hProv, 0);
+
+    // clean engine state
+    if (hCa)
+        CertCloseStore(hCa, 0);
+    if (hRoot)
+        CertCloseStore(hRoot, 0);
+    if (hChainEngine)
+        CertFreeCertificateChainEngine(hChainEngine);
 }
 
 // Конец примера

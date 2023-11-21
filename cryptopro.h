@@ -20,6 +20,8 @@
 #include <iostream>
 #include <memory>
 
+#include <mutex>
+
 namespace crypto
 {
     using T_UNIQP_BYTE = std::unique_ptr<BYTE[]>;
@@ -31,16 +33,23 @@ namespace crypto
 
     using T_PUBLIC_KEY = std::pair<T_SHARP_BYTE, DWORD>;
     using T_SIGN_BYTE = std::pair<T_SHARP_BYTE, DWORD>;
+    using T_CERT_BYTE = std::pair<T_SHARP_BYTE, DWORD>;
 
     constexpr size_t GR3411LEN = 64;
     class Crypto
     {
     private:
+        std::mutex _mtx;
         /* data */
         HCRYPTPROV _hProv = 0;
         HCRYPTHASH _hHash = 0;
         HCRYPTKEY _hKey = 0;
         HCRYPTKEY _hPubKey = 0;
+
+        // certificate engine
+        HCERTCHAINENGINE hChainEngine = NULL;
+        HCERTSTORE hRoot = 0;
+        HCERTSTORE hCa = 0;
 
         T_HASH _pbHash;
         T_SIGN _pbSignature;
@@ -51,6 +60,9 @@ namespace crypto
 
         const char *_pin = "1234";
         void createContainer(std::string const& name);
+
+        void PrepareEngingeChain();
+        BOOL VerifyCertificateChain(PCCERT_CONTEXT pCertCtx, HCERTCHAINENGINE hChainEngine);
 
     public:
         // Crypto();
@@ -63,8 +75,11 @@ namespace crypto
         T_PAIR_BYTE hashByte(const char *data);
         void loadCertificate(const char *certificate);
 
-        void LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile, char *szKeyFile);
+        void LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, char const *szCertFile);
+        bool LoadPublicKey(BYTE *pbBlob, DWORD *pcbBlob, std::string const &certStr);
 
+        bool CheckCertificate(std::string const &certStr);
+        // bool CheckCertificate(T_CERT_BYTE pbCert);
         bool CheckCertificate(char const *szCertFile);
 
         bool verify(const char *data, DWORD dwSigLen, T_SIGN pbSignature, T_PUBLIC_KEY pubkey);
