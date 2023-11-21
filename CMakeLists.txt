@@ -192,36 +192,73 @@ set(CXX_STANDARD 17)
 
 
 #  Test work with Certificate 
-add_executable(test-certificate 
-    certificate.cpp 
-    crypto.cpp
-)
+# add_executable(test-certificate 
+#     certificate.cpp 
+#     cryptopro.cpp
+# )
 
-target_compile_definitions(test-certificate PUBLIC 
-    SIZEOF_VOID_P=8 
-    UNIX
-    HAVE_LIMITS_H
-    HAVE_STD_INT_H
-    HAVE_SYS_INTTYPES_H
-    COMPACT
-)
+# target_compile_definitions(test-certificate PUBLIC 
+#     SIZEOF_VOID_P=8 
+#     UNIX
+#     HAVE_LIMITS_H
+#     HAVE_STD_INT_H
+#     HAVE_SYS_INTTYPES_H
+#     COMPACT
+# )
 
-target_link_directories(test-certificate PUBLIC /opt/cprocsp/lib/amd64)
-target_include_directories(test-certificate PUBLIC 
-    /opt/cprocsp 
-    /opt/cprocsp/include/ 
-    /opt/cprocsp/include/cpcsp
-    /opt/cprocsp/include/pki 
-)
-target_link_libraries(test-certificate crypto ssp capi10 capi20 rdrsup pthread)
+# target_link_directories(test-certificate PUBLIC /opt/cprocsp/lib/amd64)
+# target_include_directories(test-certificate PUBLIC 
+#     /opt/cprocsp 
+#     /opt/cprocsp/include/ 
+#     /opt/cprocsp/include/cpcsp
+#     /opt/cprocsp/include/pki 
+# )
+# target_link_libraries(test-certificate crypto ssp capi10 capi20 rdrsup pthread)
+
+# #  Test work with Certificate 
+# add_executable(test-crypto-single-thread 
+#     test-crypto-single-thread.cpp
+#     cryptopro.cpp
+# )
+
+# target_compile_definitions(test-crypto-single-thread PUBLIC 
+#     SIZEOF_VOID_P=8 
+#     UNIX
+#     HAVE_LIMITS_H
+#     HAVE_STD_INT_H
+#     HAVE_SYS_INTTYPES_H
+#     COMPACT
+# )
+
+# target_link_directories(test-crypto-single-thread PUBLIC /opt/cprocsp/lib/amd64)
+# target_include_directories(test-crypto-single-thread PUBLIC 
+#     /opt/cprocsp 
+#     /opt/cprocsp/include/ 
+#     /opt/cprocsp/include/cpcsp
+#     /opt/cprocsp/include/pki 
+# )
+# target_link_libraries(test-crypto-single-thread crypto ssp capi10 capi20 rdrsup pthread)
+
+
+# set(CMAKE_BUILD_TYPE "Release")
+
+# Support profiler
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+
+find_library(GPERFTOOLS_LIBRARY NAMES profiler REQUIRED)
+if(NOT GPERFTOOLS_LIBRARY)
+    message(FATAL_ERROR "gperftools library not found.")
+endif()
 
 #  Test work with Certificate 
-add_executable(test-crypto-single-thread 
-    test-crypto-single-thread.cpp
-    crypto.cpp
+add_executable(for-prof-certificate 
+    check-certificate.cpp
+    cryptopro.cpp
 )
 
-target_compile_definitions(test-crypto-single-thread PUBLIC 
+target_compile_definitions(for-prof-certificate PUBLIC 
     SIZEOF_VOID_P=8 
     UNIX
     HAVE_LIMITS_H
@@ -230,11 +267,37 @@ target_compile_definitions(test-crypto-single-thread PUBLIC
     COMPACT
 )
 
-target_link_directories(test-crypto-single-thread PUBLIC /opt/cprocsp/lib/amd64)
-target_include_directories(test-crypto-single-thread PUBLIC 
+target_link_directories(for-prof-certificate PUBLIC /opt/cprocsp/lib/amd64)
+target_include_directories(for-prof-certificate PUBLIC 
     /opt/cprocsp 
     /opt/cprocsp/include/ 
     /opt/cprocsp/include/cpcsp
     /opt/cprocsp/include/pki 
 )
-target_link_libraries(test-crypto-single-thread crypto ssp capi10 capi20 rdrsup pthread)
+# target_link_libraries(for-prof-certificate crypto ssp capi10 capi20 rdrsup pthread ${GPERFTOOLS_LIBRARY})
+target_link_libraries(for-prof-certificate crypto ssp capi10 capi20 rdrsup pthread)
+
+#  Test work with Certificate 
+add_executable(multi-for-prof-certificate 
+    multi-check-certificate.cpp
+    cryptopro.cpp
+)
+
+target_compile_definitions(multi-for-prof-certificate PUBLIC 
+    SIZEOF_VOID_P=8 
+    UNIX
+    HAVE_LIMITS_H
+    HAVE_STD_INT_H
+    HAVE_SYS_INTTYPES_H
+    COMPACT
+)
+
+target_link_directories(multi-for-prof-certificate PUBLIC /opt/cprocsp/lib/amd64)
+target_include_directories(multi-for-prof-certificate PUBLIC 
+    /opt/cprocsp 
+    /opt/cprocsp/include/ 
+    /opt/cprocsp/include/cpcsp
+    /opt/cprocsp/include/pki 
+)
+# target_link_libraries(multi-for-prof-certificate crypto ssp capi10 capi20 rdrsup pthread ${GPERFTOOLS_LIBRARY})
+target_link_libraries(multi-for-prof-certificate crypto ssp capi10 capi20 rdrsup pthread)

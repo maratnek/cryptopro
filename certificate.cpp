@@ -1,4 +1,4 @@
-#include "crypto.h"
+#include "cryptopro.h"
 
 #include <vector>
 
@@ -47,7 +47,7 @@ int main() {
             if (verify.CheckCertificate(cert_file_name.c_str())) {
                 printf("Certificate verified!\n");
 
-                verify.LoadPublicKey(pbKeyBlob.get(), &dwBlobLen, cert_file_name.c_str(), nullptr);
+                verify.LoadPublicKey(pbKeyBlob.get(), &dwBlobLen, cert_file_name.c_str());
                 std::cout << "cert file loaded" << std::endl;
                 T_PUBLIC_KEY pbKey(pbKeyBlob, dwBlobLen);
                 printf("Cert blob len %d\n", pbKey.second);
